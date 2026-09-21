@@ -1,6 +1,5 @@
 package com.gmaldonado.taxflow_movil.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -325,58 +324,6 @@ fun AuthScreen(
             Spacer(modifier = Modifier.width(8.dp))
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
         }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Divider
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            HorizontalDivider(modifier = Modifier.weight(1f), color = TaxflowBorder)
-            Text("o continúa con", fontSize = 12.sp, color = TaxflowTextMuted)
-            HorizontalDivider(modifier = Modifier.weight(1f), color = TaxflowBorder)
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // SSO Buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            OutlinedButton(
-                onClick = onAuthSuccess,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = TaxflowSurfaceContainerLowest,
-                    contentColor = TaxflowTextPrimary
-                ),
-                border = BorderStroke(1.dp, TaxflowBorder)
-            ) {
-                Text(" Apple ID", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            }
-
-            OutlinedButton(
-                onClick = onAuthSuccess,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = TaxflowSurfaceContainerLowest,
-                    contentColor = TaxflowTextPrimary
-                ),
-                border = BorderStroke(1.dp, TaxflowBorder)
-            ) {
-                Text("G  Google", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
-
         Spacer(modifier = Modifier.height(24.dp))
 
         // Security footer
