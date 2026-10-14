@@ -27,35 +27,90 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gmaldonado.taxflow_movil.R
-import com.gmaldonado.taxflow_movil.data.remote.models.DemoUser
+import com.gmaldonado.taxflow_movil.data.remote.models.ProfileDto
+import com.gmaldonado.taxflow_movil.data.repository.DemoCredential
 import com.gmaldonado.taxflow_movil.data.repository.TaxflowRepository
 import com.gmaldonado.taxflow_movil.ui.theme.*
+import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 @Composable
 fun AuthScreen(
-    initialIsSignUp: Boolean = true,
+    initialIsSignUp: Boolean = false,
     onBackClick: () -> Unit,
-    onAuthSuccess: (DemoUser) -> Unit
+    onAuthSuccess: (ProfileDto) -> Unit
 ) {
     var isSignUp by remember { mutableStateOf(initialIsSignUp) }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var nombre by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
-    var demoUsers by remember { mutableStateOf<List<DemoUser>>(emptyList()) }
-    var selectedUser by remember { mutableStateOf<DemoUser?>(null) }
-    var isLoadingUsers by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    LaunchedEffect(Unit) {
-        val res = TaxflowRepository.fetchDemoUsers()
-        res.onSuccess { users ->
-            demoUsers = users
-            if (users.isNotEmpty()) {
-                selectedUser = users.first()
+    fun performLogin(loginEmail: String, loginPass: String) {
+        if (loginEmail.isBlank() || loginPass.isBlank()) {
+            errorMessage = "Ingresa tu correo y contraseña"
+            return
+        }
+        if (loginPass.length < 12) {
+            errorMessage = "La contraseña debe tener mínimo 12 caracteres"
+            return
+        }
+
+        isLoading = true
+        errorMessage = null
+
+        scope.launch {
+            val result = TaxflowRepository.login(loginEmail, loginPass)
+            isLoading = false
+            result.onSuccess { profile ->
+                onAuthSuccess(profile)
+            }.onFailure { ex ->
+                errorMessage = when {
+                    ex is HttpException && ex.code() == 401 -> "Correo o contraseña incorrectos"
+                    ex is HttpException && ex.code() == 400 -> "Verifique los datos ingresados (contraseña de 12 a 128 caracteres)"
+                    ex is HttpException && ex.code() == 429 -> "Límite de solicitudes alcanzado, reintentando..."
+                    else -> "Error de conexión: ${ex.localizedMessage ?: "Revise su conexión a Internet"}"
+                }
             }
-            isLoadingUsers = false
-        }.onFailure {
-            isLoadingUsers = false
+        }
+    }
+
+    fun performRegister() {
+        if (nombre.trim().length < 2) {
+            errorMessage = "El nombre debe tener al menos 2 caracteres"
+            return
+        }
+        if (email.isBlank() || !email.contains("@")) {
+            errorMessage = "Ingresa un correo electrónico válido"
+            return
+        }
+        if (password.length < 12 || password.length > 128) {
+            errorMessage = "La contraseña debe tener entre 12 y 128 caracteres"
+            return
+        }
+
+        isLoading = true
+        errorMessage = null
+
+        scope.launch {
+            val result = TaxflowRepository.register(nombre, email, password)
+            isLoading = false
+            result.onSuccess { profile ->
+                onAuthSuccess(profile)
+            }.onFailure { ex ->
+                errorMessage = when {
+                    ex is HttpException && ex.code() == 409 -> "El correo ya se encuentra registrado"
+                    ex is HttpException && ex.code() == 400 -> "Datos inválidos (contraseña entre 12 y 128 caracteres)"
+                    ex is HttpException && ex.code() == 429 -> "Límite de solicitudes alcanzado, espere un momento"
+                    else -> "Error al registrarse: ${ex.localizedMessage ?: "Revise su conexión"}"
+                }
+            }
         }
     }
 
@@ -122,7 +177,7 @@ fun AuthScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Cloud,
+                    imageVector = Icons.Default.Lock,
                     contentDescription = null,
                     tint = TaxflowEmerald,
                     modifier = Modifier.size(18.dp)
@@ -130,23 +185,238 @@ fun AuthScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Headline
         Text(
-            text = "Acceso Demo en la Nube",
+            text = if (isSignUp) "Crea tu cuenta" else "Bienvenido a Taxflow",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = TaxflowTextPrimary
         )
         Text(
-            text = "Conexión en vivo con base de datos AWS DynamoDB y API REST Gateway.",
+            text = if (isSignUp)
+                "Registra tu cuenta personal para gestionar tus impuestos en AWS."
+            else
+                "Ingresa con tus credenciales o usa una de las cuentas demo pre-cargadas.",
             fontSize = 13.sp,
             color = TaxflowTextMuted,
             modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
         )
 
-        // Demo User Selector Card
+        // Auth Tabs Toggle (Iniciar Sesión / Registrarse)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(TaxflowSurfaceContainerLow, RoundedCornerShape(12.dp))
+                .padding(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(if (!isSignUp) TaxflowEmerald else Color.Transparent)
+                    .clickable {
+                        isSignUp = false
+                        errorMessage = null
+                    }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Iniciar Sesión",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (!isSignUp) Color.White else TaxflowTextMuted
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(if (isSignUp) TaxflowEmerald else Color.Transparent)
+                    .clickable {
+                        isSignUp = true
+                        errorMessage = null
+                    }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Registrarse",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isSignUp) Color.White else TaxflowTextMuted
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Error Banner
+        if (errorMessage != null) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = TaxflowCoralRed.copy(alpha = 0.12f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ErrorOutline,
+                        contentDescription = "Error",
+                        tint = TaxflowCoralRed,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = errorMessage ?: "",
+                        fontSize = 12.sp,
+                        color = TaxflowCoralRed,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        // Credentials Form Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = TaxflowSurfaceContainerLowest),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // If Sign Up, ask for Full Name
+                if (isSignUp) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "NOMBRE COMPLETO",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TaxflowTextMuted
+                        )
+                        OutlinedTextField(
+                            value = nombre,
+                            onValueChange = { nombre = it },
+                            placeholder = { Text("Ej. Ana Torres", fontSize = 13.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            leadingIcon = {
+                                Icon(Icons.Default.Person, contentDescription = null, tint = TaxflowTextMuted)
+                            }
+                        )
+                    }
+                }
+
+                // Email field
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "CORREO ELECTRÓNICO",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TaxflowTextMuted
+                    )
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        placeholder = { Text("usuario@taxflow.test", fontSize = 13.sp) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        leadingIcon = {
+                            Icon(Icons.Default.Email, contentDescription = null, tint = TaxflowTextMuted)
+                        }
+                    )
+                }
+
+                // Password field
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "CONTRASEÑA",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TaxflowTextMuted
+                        )
+                        Text(
+                            text = "12 a 128 caracteres",
+                            fontSize = 11.sp,
+                            color = TaxflowTextMuted
+                        )
+                    }
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        placeholder = { Text("••••••••••••", fontSize = 13.sp) },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        leadingIcon = {
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = TaxflowTextMuted)
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = if (passwordVisible) "Ocultar" else "Mostrar",
+                                    tint = TaxflowTextMuted
+                                )
+                            }
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Submit Button
+                Button(
+                    onClick = {
+                        if (isSignUp) performRegister() else performLogin(email, password)
+                    },
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = TaxflowNavy)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(
+                            text = if (isSignUp) "Crear Cuenta en AWS" else "Iniciar Sesión",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Pre-loaded Demo Accounts (One-tap login for rapid evaluation)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -165,138 +435,104 @@ fun AuthScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "PERFILES FICTICIOS EN AWS",
+                        text = "ACCESO RÁPIDO CON CUENTAS DEMO",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = TaxflowEmeraldDark,
                         letterSpacing = 0.5.sp
                     )
                     Text(
-                        text = "Selector Demo",
+                        text = "Datos en DynamoDB",
                         fontSize = 11.sp,
                         color = TaxflowTextMuted
                     )
                 }
 
-                if (isLoadingUsers) {
-                    Box(
+                Text(
+                    text = "Selecciona una cuenta de prueba para iniciar sesión automáticamente con Bearer Token y cargar comprobantes precargados:",
+                    fontSize = 12.sp,
+                    color = TaxflowTextMuted,
+                    lineHeight = 16.sp
+                )
+
+                TaxflowRepository.demoAccounts.forEach { acc ->
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(100.dp),
-                        contentAlignment = Alignment.Center
+                            .clickable(enabled = !isLoading) {
+                                email = acc.email
+                                password = acc.pass
+                                isSignUp = false
+                                performLogin(acc.email, acc.pass)
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = TaxflowSurfaceContainerLow)
                     ) {
-                        CircularProgressIndicator(color = TaxflowEmerald)
-                    }
-                } else if (demoUsers.isEmpty()) {
-                    Text(
-                        text = "No se pudieron obtener usuarios de AWS. Verifique la conexión a Internet.",
-                        color = TaxflowCoralRed,
-                        fontSize = 12.sp
-                    )
-                } else {
-                    demoUsers.forEach { user ->
-                        val isSelected = selectedUser?.id == user.id
-                        Card(
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    selectedUser = user
-                                    TaxflowRepository.selectUser(user)
-                                    onAuthSuccess(user)
-                                },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isSelected) TaxflowEmeraldContainer.copy(alpha = 0.5f) else TaxflowSurfaceContainerLow
-                            ),
-                            border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, TaxflowEmerald) else null
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(TaxflowEmerald),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .background(if (isSelected) TaxflowEmerald else TaxflowSurfaceContainerLowest),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = user.id.takeLast(2),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
-                                            color = if (isSelected) Color.White else TaxflowTextPrimary
-                                        )
-                                    }
-
-                                    Column {
-                                        Text(
-                                            text = user.nombre,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TaxflowTextPrimary
-                                        )
-                                        Text(
-                                            text = "${user.profesion} • RUC: ...${user.ultimoDigitoRuc}",
-                                            fontSize = 12.sp,
-                                            color = TaxflowTextMuted
-                                        )
-                                    }
+                                    Text(
+                                        text = acc.id.takeLast(2),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = Color.White
+                                    )
                                 }
 
-                                Icon(
-                                    imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    tint = if (isSelected) TaxflowEmerald else TaxflowTextMuted,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Column {
+                                    Text(
+                                        text = acc.nombre,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TaxflowTextPrimary
+                                    )
+                                    Text(
+                                        text = "${acc.profesion} • RUC terminación ${acc.ultimoDigitoRuc}",
+                                        fontSize = 11.sp,
+                                        color = TaxflowTextMuted
+                                    )
+                                    Text(
+                                        text = acc.email,
+                                        fontSize = 10.sp,
+                                        color = TaxflowEmeraldDark
+                                    )
+                                }
                             }
+
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "Ingresar",
+                                tint = TaxflowTextMuted,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Direct Login Button
-        selectedUser?.let { user ->
-            Button(
-                onClick = {
-                    TaxflowRepository.selectUser(user)
-                    onAuthSuccess(user)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = TaxflowNavy)
-            ) {
-                Text(
-                    text = "Entrar como ${user.nombre}",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
-            }
-        }
-
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Security / Demo footer
+        // Security / Backend footer
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -304,13 +540,13 @@ fun AuthScreen(
             ) {
                 Icon(Icons.Default.CloudQueue, contentDescription = null, tint = TaxflowEmerald, modifier = Modifier.size(16.dp))
                 Text(
-                    text = "API REST AWS: execute-api.us-east-1.amazonaws.com",
+                    text = "API v2: execute-api.us-east-1.amazonaws.com",
                     fontSize = 11.sp,
                     color = TaxflowTextMuted
                 )
             }
             Text(
-                text = "Modo Demostración Académica · Datos ficticios en DynamoDB",
+                text = "Autenticación Bearer Token (256 bits) · Expiración 7200s",
                 fontSize = 11.sp,
                 color = TaxflowTextMuted
             )

@@ -21,19 +21,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gmaldonado.taxflow_movil.data.formatters.Formatters
-import com.gmaldonado.taxflow_movil.data.remote.models.DemoUser
 import com.gmaldonado.taxflow_movil.data.remote.models.IncomeDto
 import com.gmaldonado.taxflow_movil.data.remote.models.IncomeListResponse
+import com.gmaldonado.taxflow_movil.data.remote.models.ProfileDto
 import com.gmaldonado.taxflow_movil.data.repository.TaxflowRepository
 import com.gmaldonado.taxflow_movil.ui.components.ReceiptData
 import com.gmaldonado.taxflow_movil.ui.theme.*
 
 @Composable
 fun IngresosScreen(
-    currentUser: DemoUser?,
+    currentUser: ProfileDto?,
     onReceiptClick: (ReceiptData) -> Unit
 ) {
-    val userId = currentUser?.id ?: "demo-01"
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("Todos") }
 
@@ -42,7 +41,7 @@ fun IngresosScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var refreshTrigger by remember { mutableStateOf(0) }
 
-    LaunchedEffect(userId, selectedFilter, searchQuery, refreshTrigger) {
+    LaunchedEffect(currentUser?.id, selectedFilter, searchQuery, refreshTrigger) {
         isLoading = true
         errorMessage = null
 
@@ -57,7 +56,6 @@ fun IngresosScreen(
 
         val token = TaxflowRepository.getSessionToken()
         val result = TaxflowRepository.getIncomes(
-            userId = userId,
             desde = desde,
             hasta = hasta,
             q = q,

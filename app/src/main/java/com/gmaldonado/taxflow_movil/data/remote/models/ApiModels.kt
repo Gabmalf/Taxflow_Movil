@@ -2,22 +2,39 @@ package com.gmaldonado.taxflow_movil.data.remote.models
 
 import com.google.gson.annotations.SerializedName
 
-// --- USUARIO DEMO ---
+// ── AUTENTICACIÓN Y SESIÓN ───────────────────────────────────────────────────
 
-data class DemoUser(
+data class LoginRequest(
+    @SerializedName("email") val email: String,
+    @SerializedName("password") val password: String
+)
+
+data class RegisterRequest(
+    @SerializedName("nombre") val nombre: String,
+    @SerializedName("email") val email: String,
+    @SerializedName("password") val password: String
+)
+
+data class ProfileDto(
     @SerializedName("id") val id: String,
     @SerializedName("nombre") val nombre: String,
+    @SerializedName("email") val email: String,
     @SerializedName("profesion") val profesion: String,
-    @SerializedName("ultimo_digito_ruc") val ultimoDigitoRuc: Int,
-    @SerializedName("es_ficticio") val esFicticio: Boolean
+    @SerializedName("ultimo_digito_ruc") val ultimoDigitoRuc: Int? // Nullable para cuentas nuevas
 )
 
-data class DemoUserListResponse(
-    @SerializedName("items") val items: List<DemoUser>,
-    @SerializedName("total") val total: Int
+data class SessionResponse(
+    @SerializedName("access_token") val accessToken: String,
+    @SerializedName("token_type") val tokenType: String, // "Bearer"
+    @SerializedName("expires_in") val expiresIn: Int,     // 7200 segundos
+    @SerializedName("user") val user: ProfileDto
 )
 
-// --- DASHBOARD ---
+data class LogoutResponse(
+    @SerializedName("ok") val ok: Boolean
+)
+
+// ── DASHBOARD ────────────────────────────────────────────────────────────────
 
 data class RecentActivityDto(
     @SerializedName("tipo") val tipo: String, // "INGRESO" | "GASTO"
@@ -42,7 +59,7 @@ data class DashboardResponse(
     @SerializedName("actividad_reciente") val actividadReciente: List<RecentActivityDto>
 )
 
-// --- INGRESOS ---
+// ── INGRESOS ─────────────────────────────────────────────────────────────────
 
 data class IncomeDto(
     @SerializedName("id") val id: String,
@@ -69,7 +86,7 @@ data class IncomeListResponse(
     @SerializedName("resumen") val resumen: IncomeResumenDto
 )
 
-// --- GASTOS ---
+// ── GASTOS ───────────────────────────────────────────────────────────────────
 
 data class ExpenseDto(
     @SerializedName("id") val id: String,
@@ -96,7 +113,7 @@ data class ExpenseListResponse(
     @SerializedName("resumen") val resumen: ExpenseResumenDto
 )
 
-// --- CALENDARIO SUNAT ---
+// ── CALENDARIO SUNAT ─────────────────────────────────────────────────────────
 
 data class CalendarItemDto(
     @SerializedName("id") val id: String,
@@ -113,7 +130,7 @@ data class CalendarItemListResponse(
     @SerializedName("total") val total: Int
 )
 
-// --- NOTIFICACIONES ---
+// ── NOTIFICACIONES ───────────────────────────────────────────────────────────
 
 data class NotificationDto(
     @SerializedName("id") val id: String,
@@ -129,7 +146,7 @@ data class NotificationListResponse(
     @SerializedName("total") val total: Int
 )
 
-// --- SIMULADOR TRIBUTARIO ---
+// ── SIMULADOR TRIBUTARIO ─────────────────────────────────────────────────────
 
 data class IncomeSimulationRequest(
     @SerializedName("tipo") val tipo: String = "INGRESO",
@@ -153,12 +170,12 @@ data class SimulationResultDto(
     @SerializedName("persistido") val persistido: Boolean
 )
 
-// --- ERROR ---
+// ── RESPUESTA DE ERROR DEL BACKEND ───────────────────────────────────────────
 
 data class ApiErrorDetail(
     @SerializedName("code") val code: String,
     @SerializedName("message") val message: String,
-    @SerializedName("request_id") val requestId: String
+    @SerializedName("request_id") val requestId: String? = null
 )
 
 data class ApiErrorResponse(

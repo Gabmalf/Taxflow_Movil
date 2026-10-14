@@ -23,12 +23,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gmaldonado.taxflow_movil.R
-import com.gmaldonado.taxflow_movil.data.remote.models.DemoUser
+import com.gmaldonado.taxflow_movil.data.remote.models.ProfileDto
 import com.gmaldonado.taxflow_movil.ui.theme.*
 
 @Composable
 fun TaxflowTopBar(
-    currentUser: DemoUser? = null,
+    currentUser: ProfileDto? = null,
     title: String? = null,
     subtitle: String? = null,
     unreadNotifications: Boolean = true,

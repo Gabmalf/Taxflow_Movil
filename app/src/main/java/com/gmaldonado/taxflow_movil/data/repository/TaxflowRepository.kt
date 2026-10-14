@@ -6,51 +6,127 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+data class DemoCredential(
+    val id: String,
+    val nombre: String,
+    val profesion: String,
+    val email: String,
+    val pass: String,
+    val ultimoDigitoRuc: Int
+)
+
 object TaxflowRepository {
     private val api = ApiClient.service
 
-    // Cached demo users
-    private var _cachedUsers: List<DemoUser> = emptyList()
-    val cachedUsers: List<DemoUser> get() = _cachedUsers
+    // Cuentas pre-cargadas en DynamoDB para pruebas académicas rápidas
+    val demoAccounts = listOf(
+        DemoCredential(
+            id = "demo-01",
+            nombre = "Carlos Jara",
+            profesion = "Desarrollador de Software",
+            email = "carlos.jara@taxflow.test",
+            pass = "Tf-mQ576UQEoAOEUjB9foM9!",
+            ultimoDigitoRuc = 1
+        ),
+        DemoCredential(
+            id = "demo-02",
+            nombre = "Carmen González",
+            profesion = "Consultora Legal",
+            email = "carmen.gonzalez@taxflow.test",
+            pass = "Tf-XG_yUzcZooFDsseznqqX!",
+            ultimoDigitoRuc = 4
+        ),
+        DemoCredential(
+            id = "demo-03",
+            nombre = "Óscar Paredes",
+            profesion = "Diseñador UX/UI",
+            email = "oscar.paredes@taxflow.test",
+            pass = "Tf-Xg8QqLT97kQ25ZxV8-Yw!",
+            ultimoDigitoRuc = 7
+        )
+    )
 
-    // Currently active demo user
-    private val _currentUser = MutableStateFlow<DemoUser?>(null)
-    val currentUser: StateFlow<DemoUser?> = _currentUser.asStateFlow()
+    private var _authToken: String? = null
+    fun getAuthToken(): String? = _authToken
 
-    // Counter/Token to detect user switches and discard stale responses
+    private val _currentUser = MutableStateFlow<ProfileDto?>(null)
+    val currentUser: StateFlow<ProfileDto?> = _currentUser.asStateFlow()
+
+    // Contador de sesión para descartar respuestas asíncronas obsoletas tras cambio de sesión
     private var activeSessionToken: Long = 0L
-
     fun getSessionToken(): Long = activeSessionToken
 
-    fun selectUser(user: DemoUser) {
-        activeSessionToken++
-        _currentUser.value = user
-    }
+    fun isLoggedIn(): Boolean = !_authToken.isNullOrBlank()
 
-    suspend fun fetchDemoUsers(): Result<List<DemoUser>> {
+    // ── AUTENTICACIÓN ────────────────────────────────────────────────────────
+
+    suspend fun login(email: String, pass: String): Result<ProfileDto> {
         return try {
-            val response = api.getDemoUsers()
-            _cachedUsers = response.items
-            if (_currentUser.value == null && response.items.isNotEmpty()) {
-                _currentUser.value = response.items.first()
-            }
-            Result.success(response.items)
+            val res = api.login(LoginRequest(email.trim().lowercase(), pass))
+            activeSessionToken++
+            _authToken = res.accessToken
+            _currentUser.value = res.user
+            Result.success(res.user)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    suspend fun getDashboard(userId: String, anio: Int = 2026, mes: Int = 9): Result<DashboardResponse> {
+    suspend fun register(nombre: String, email: String, pass: String): Result<ProfileDto> {
         return try {
-            val res = api.getDashboard(userId = userId, anio = anio, mes = mes)
+            val res = api.register(RegisterRequest(nombre.trim(), email.trim().lowercase(), pass))
+            activeSessionToken++
+            _authToken = res.accessToken
+            _currentUser.value = res.user
+            Result.success(res.user)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun logout(): Result<Boolean> {
+        return try {
+            if (isLoggedIn()) {
+                api.logout()
+            }
+            clearSession()
+            Result.success(true)
+        } catch (e: Exception) {
+            clearSession()
+            Result.failure(e)
+        }
+    }
+
+    fun clearSession() {
+        activeSessionToken++
+        _authToken = null
+        _currentUser.value = null
+    }
+
+    // ── DATOS DE CUENTA (/v1/me) ─────────────────────────────────────────────
+
+    suspend fun getProfile(): Result<ProfileDto> {
+        return try {
+            val res = api.getProfile()
+            _currentUser.value = res
             Result.success(res)
         } catch (e: Exception) {
+            handleUnauthorized(e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getDashboard(anio: Int = 2026, mes: Int = 9): Result<DashboardResponse> {
+        return try {
+            val res = api.getDashboard(anio = anio, mes = mes)
+            Result.success(res)
+        } catch (e: Exception) {
+            handleUnauthorized(e)
             Result.failure(e)
         }
     }
 
     suspend fun getIncomes(
-        userId: String,
         desde: String? = null,
         hasta: String? = null,
         q: String? = null,
@@ -58,112 +134,92 @@ object TaxflowRepository {
         estado: String? = null
     ): Result<IncomeListResponse> {
         return try {
-            val res = api.getIncomes(
-                userId = userId,
-                desde = desde,
-                hasta = hasta,
-                q = q,
-                cliente = cliente,
-                estado = estado
-            )
+            val res = api.getIncomes(desde, hasta, q, cliente, estado)
             Result.success(res)
         } catch (e: Exception) {
+            handleUnauthorized(e)
             Result.failure(e)
         }
     }
 
-    suspend fun getIncomeDetail(userId: String, id: String): Result<IncomeDto> {
+    suspend fun getIncomeDetail(id: String): Result<IncomeDto> {
         return try {
-            val res = api.getIncomeDetail(userId = userId, id = id)
+            val res = api.getIncomeDetail(id)
             Result.success(res)
         } catch (e: Exception) {
+            handleUnauthorized(e)
             Result.failure(e)
         }
     }
 
     suspend fun getExpenses(
-        userId: String,
         desde: String? = null,
         hasta: String? = null,
         categoria: String? = null,
         estado: String? = null
     ): Result<ExpenseListResponse> {
         return try {
-            val res = api.getExpenses(
-                userId = userId,
-                desde = desde,
-                hasta = hasta,
-                categoria = categoria,
-                estado = estado
-            )
+            val res = api.getExpenses(desde, hasta, categoria, estado)
             Result.success(res)
         } catch (e: Exception) {
+            handleUnauthorized(e)
             Result.failure(e)
         }
     }
 
-    suspend fun getExpenseDetail(userId: String, id: String): Result<ExpenseDto> {
+    suspend fun getExpenseDetail(id: String): Result<ExpenseDto> {
         return try {
-            val res = api.getExpenseDetail(userId = userId, id = id)
+            val res = api.getExpenseDetail(id)
             Result.success(res)
         } catch (e: Exception) {
+            handleUnauthorized(e)
             Result.failure(e)
         }
     }
 
-    suspend fun getCalendar(userId: String, anio: Int = 2026): Result<CalendarItemListResponse> {
+    suspend fun getCalendar(anio: Int = 2026): Result<CalendarItemListResponse> {
         return try {
-            val res = api.getCalendar(userId = userId, anio = anio)
+            val res = api.getCalendar(anio = anio)
             Result.success(res)
         } catch (e: Exception) {
+            handleUnauthorized(e)
             Result.failure(e)
         }
     }
 
-    suspend fun getNotifications(userId: String): Result<NotificationListResponse> {
+    suspend fun getNotifications(): Result<NotificationListResponse> {
         return try {
-            val res = api.getNotifications(userId = userId)
+            val res = api.getNotifications()
             Result.success(res)
         } catch (e: Exception) {
+            handleUnauthorized(e)
             Result.failure(e)
         }
     }
 
-    suspend fun simulateIncome(
-        userId: String,
-        montoCentimos: Long,
-        aplicarRetencion: Boolean
-    ): Result<SimulationResultDto> {
+    suspend fun simulateIncome(montoCentimos: Long, aplicarRetencion: Boolean): Result<SimulationResultDto> {
         return try {
-            val res = api.simulateIncome(
-                userId = userId,
-                request = IncomeSimulationRequest(
-                    montoCentimos = montoCentimos,
-                    aplicarRetencion = aplicarRetencion
-                )
-            )
+            val res = api.simulateIncome(IncomeSimulationRequest(montoCentimos = montoCentimos, aplicarRetencion = aplicarRetencion))
             Result.success(res)
         } catch (e: Exception) {
+            handleUnauthorized(e)
             Result.failure(e)
         }
     }
 
-    suspend fun simulateExpense(
-        userId: String,
-        montoCentimos: Long,
-        categoria: String
-    ): Result<SimulationResultDto> {
+    suspend fun simulateExpense(montoCentimos: Long, categoria: String): Result<SimulationResultDto> {
         return try {
-            val res = api.simulateExpense(
-                userId = userId,
-                request = ExpenseSimulationRequest(
-                    montoCentimos = montoCentimos,
-                    categoria = categoria
-                )
-            )
+            val res = api.simulateExpense(ExpenseSimulationRequest(montoCentimos = montoCentimos, categoria = categoria))
             Result.success(res)
         } catch (e: Exception) {
+            handleUnauthorized(e)
             Result.failure(e)
+        }
+    }
+
+    private fun handleUnauthorized(e: Exception) {
+        if (e is retrofit2.HttpException && e.code() == 401) {
+            clearSession()
         }
     }
 }

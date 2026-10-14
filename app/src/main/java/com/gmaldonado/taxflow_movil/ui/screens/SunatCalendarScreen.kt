@@ -24,15 +24,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gmaldonado.taxflow_movil.data.formatters.Formatters
 import com.gmaldonado.taxflow_movil.data.remote.models.CalendarItemDto
-import com.gmaldonado.taxflow_movil.data.remote.models.DemoUser
+import com.gmaldonado.taxflow_movil.data.remote.models.ProfileDto
 import com.gmaldonado.taxflow_movil.data.repository.TaxflowRepository
 import com.gmaldonado.taxflow_movil.ui.theme.*
 
 @Composable
 fun SunatCalendarScreen(
-    currentUser: DemoUser?
+    currentUser: ProfileDto?
 ) {
-    val userId = currentUser?.id ?: "demo-01"
     val context = LocalContext.current
 
     var calendarItems by remember { mutableStateOf<List<CalendarItemDto>>(emptyList()) }
@@ -40,11 +39,11 @@ fun SunatCalendarScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var refreshTrigger by remember { mutableStateOf(0) }
 
-    LaunchedEffect(userId, refreshTrigger) {
+    LaunchedEffect(currentUser?.id, refreshTrigger) {
         isLoading = true
         errorMessage = null
         val token = TaxflowRepository.getSessionToken()
-        val result = TaxflowRepository.getCalendar(userId = userId, anio = 2026)
+        val result = TaxflowRepository.getCalendar(anio = 2026)
 
         if (token == TaxflowRepository.getSessionToken()) {
             result.onSuccess {
@@ -80,7 +79,7 @@ fun SunatCalendarScreen(
                         letterSpacing = 0.5.sp
                     )
                     Text(
-                        text = "Último dígito: ${currentUser?.ultimoDigitoRuc ?: 1}",
+                        text = "Último dígito: ${currentUser?.ultimoDigitoRuc ?: "—"}",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = TaxflowNavy
@@ -132,7 +131,7 @@ fun SunatCalendarScreen(
                             color = TaxflowNavy
                         )
                         Text(
-                            text = "Obligaciones programadas para ${currentUser?.nombre ?: "Usuario Demo"} (RUC termina en ${currentUser?.ultimoDigitoRuc ?: 1}).",
+                            text = "Obligaciones programadas para ${currentUser?.nombre ?: "Usuario Demo"} (RUC termina en ${currentUser?.ultimoDigitoRuc ?: "—"}).",
                             fontSize = 12.sp,
                             color = TaxflowTextMuted
                         )

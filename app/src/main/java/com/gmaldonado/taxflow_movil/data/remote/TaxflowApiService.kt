@@ -5,19 +5,36 @@ import retrofit2.http.*
 
 interface TaxflowApiService {
 
-    @GET("v1/demo/users")
-    suspend fun getDemoUsers(): DemoUserListResponse
+    // ── AUTENTICACIÓN ────────────────────────────────────────────────────────
 
-    @GET("v1/demo/users/{user_id}/dashboard")
+    @POST("v1/auth/register")
+    suspend fun register(
+        @Body request: RegisterRequest
+    ): SessionResponse
+
+    @POST("v1/auth/login")
+    suspend fun login(
+        @Body request: LoginRequest
+    ): SessionResponse
+
+    @POST("v1/auth/logout")
+    suspend fun logout(
+        @Body emptyBody: Map<String, String> = emptyMap() // Backend exige cuerpo JSON {}
+    ): LogoutResponse
+
+    @GET("v1/me")
+    suspend fun getProfile(): ProfileDto
+
+    // ── RECURSOS DEL USUARIO AUTENTICADO (/v1/me) ───────────────────────────
+
+    @GET("v1/me/dashboard")
     suspend fun getDashboard(
-        @Path("user_id") userId: String,
         @Query("anio") anio: Int = 2026,
         @Query("mes") mes: Int = 9
     ): DashboardResponse
 
-    @GET("v1/demo/users/{user_id}/incomes")
+    @GET("v1/me/incomes")
     suspend fun getIncomes(
-        @Path("user_id") userId: String,
         @Query("desde") desde: String? = null,
         @Query("hasta") hasta: String? = null,
         @Query("q") q: String? = null,
@@ -25,47 +42,39 @@ interface TaxflowApiService {
         @Query("estado") estado: String? = null
     ): IncomeListResponse
 
-    @GET("v1/demo/users/{user_id}/incomes/{id}")
+    @GET("v1/me/incomes/{id}")
     suspend fun getIncomeDetail(
-        @Path("user_id") userId: String,
         @Path("id") id: String
     ): IncomeDto
 
-    @GET("v1/demo/users/{user_id}/expenses")
+    @GET("v1/me/expenses")
     suspend fun getExpenses(
-        @Path("user_id") userId: String,
         @Query("desde") desde: String? = null,
         @Query("hasta") hasta: String? = null,
         @Query("categoria") categoria: String? = null,
         @Query("estado") estado: String? = null
     ): ExpenseListResponse
 
-    @GET("v1/demo/users/{user_id}/expenses/{id}")
+    @GET("v1/me/expenses/{id}")
     suspend fun getExpenseDetail(
-        @Path("user_id") userId: String,
         @Path("id") id: String
     ): ExpenseDto
 
-    @GET("v1/demo/users/{user_id}/calendar")
+    @GET("v1/me/calendar")
     suspend fun getCalendar(
-        @Path("user_id") userId: String,
         @Query("anio") anio: Int = 2026
     ): CalendarItemListResponse
 
-    @GET("v1/demo/users/{user_id}/notifications")
-    suspend fun getNotifications(
-        @Path("user_id") userId: String
-    ): NotificationListResponse
+    @GET("v1/me/notifications")
+    suspend fun getNotifications(): NotificationListResponse
 
-    @POST("v1/demo/users/{user_id}/simulations")
+    @POST("v1/me/simulations")
     suspend fun simulateIncome(
-        @Path("user_id") userId: String,
         @Body request: IncomeSimulationRequest
     ): SimulationResultDto
 
-    @POST("v1/demo/users/{user_id}/simulations")
+    @POST("v1/me/simulations")
     suspend fun simulateExpense(
-        @Path("user_id") userId: String,
         @Body request: ExpenseSimulationRequest
     ): SimulationResultDto
 }

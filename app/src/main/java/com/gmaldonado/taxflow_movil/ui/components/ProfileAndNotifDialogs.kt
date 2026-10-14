@@ -26,16 +26,17 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.gmaldonado.taxflow_movil.R
 import com.gmaldonado.taxflow_movil.data.formatters.Formatters
-import com.gmaldonado.taxflow_movil.data.remote.models.DemoUser
 import com.gmaldonado.taxflow_movil.data.remote.models.NotificationDto
+import com.gmaldonado.taxflow_movil.data.remote.models.ProfileDto
+import com.gmaldonado.taxflow_movil.data.repository.DemoCredential
 import com.gmaldonado.taxflow_movil.data.repository.TaxflowRepository
 import com.gmaldonado.taxflow_movil.ui.theme.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileDialog(
-    currentUser: DemoUser?,
-    userList: List<DemoUser>,
-    onSelectUser: (DemoUser) -> Unit,
+    currentUser: ProfileDto?,
+    onSwitchDemoAccount: (DemoCredential) -> Unit,
     onDismiss: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -60,7 +61,7 @@ fun ProfileDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Perfil Demo AWS",
+                        text = "Mi Perfil Taxflow",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = TaxflowTextPrimary
@@ -84,7 +85,7 @@ fun ProfileDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = currentUser?.nombre ?: "Usuario ficticio",
+                    text = currentUser?.nombre ?: "Usuario",
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = TaxflowTextPrimary
@@ -95,6 +96,12 @@ fun ProfileDialog(
                     fontSize = 13.sp,
                     color = TaxflowEmeraldDark,
                     fontWeight = FontWeight.Medium
+                )
+
+                Text(
+                    text = currentUser?.email ?: "",
+                    fontSize = 12.sp,
+                    color = TaxflowTextMuted
                 )
 
                 Row(
@@ -108,14 +115,17 @@ fun ProfileDialog(
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            "ID: ${currentUser?.id ?: "demo-01"}",
+                            "ID: ${currentUser?.id ?: "—"}",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = TaxflowEmeraldDark
                         )
                     }
                     Text(
-                        "· Dígito RUC: ${currentUser?.ultimoDigitoRuc ?: 1}",
+                        text = if (currentUser?.ultimoDigitoRuc != null)
+                            "· Dígito RUC: ${currentUser.ultimoDigitoRuc}"
+                        else
+                            "· RUC: No registrado",
                         fontSize = 12.sp,
                         color = TaxflowTextMuted
                     )
@@ -123,9 +133,9 @@ fun ProfileDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Selector de Usuarios Demo
+                // Selector de Cuentas Demo para alternar rápido en pruebas
                 Text(
-                    text = "SELECCIONAR USUARIO DEMO (AWS):",
+                    text = "CAMBIAR A CUENTA DEMO:",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = TaxflowTextMuted,
@@ -138,12 +148,12 @@ fun ProfileDialog(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    userList.forEach { user ->
-                        val isSelected = user.id == currentUser?.id
+                    TaxflowRepository.demoAccounts.forEach { acc ->
+                        val isSelected = acc.id == currentUser?.id
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onSelectUser(user) },
+                                .clickable { onSwitchDemoAccount(acc) },
                             shape = RoundedCornerShape(10.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = if (isSelected) TaxflowEmeraldContainer.copy(alpha = 0.6f) else TaxflowSurfaceContainerLow
@@ -159,13 +169,13 @@ fun ProfileDialog(
                             ) {
                                 Column {
                                     Text(
-                                        text = "${user.nombre} (${user.id})",
+                                        text = "${acc.nombre} (${acc.id})",
                                         fontSize = 13.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                         color = TaxflowTextPrimary
                                     )
                                     Text(
-                                        text = "${user.profesion} • RUC termina en ${user.ultimoDigitoRuc}",
+                                        text = "${acc.profesion} • RUC: ...${acc.ultimoDigitoRuc}",
                                         fontSize = 11.sp,
                                         color = TaxflowTextMuted
                                     )
@@ -201,7 +211,7 @@ fun ProfileDialog(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Cerrar Sesión Demo", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Cerrar Sesión", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -210,17 +220,16 @@ fun ProfileDialog(
 
 @Composable
 fun NotificationsDialog(
-    userId: String,
     onDismiss: () -> Unit
 ) {
     var notifications by remember { mutableStateOf<List<NotificationDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(userId) {
+    LaunchedEffect(Unit) {
         isLoading = true
         errorMessage = null
-        val result = TaxflowRepository.getNotifications(userId)
+        val result = TaxflowRepository.getNotifications()
         result.onSuccess {
             notifications = it.items
             isLoading = false
@@ -257,7 +266,7 @@ fun NotificationsDialog(
                             color = TaxflowTextPrimary
                         )
                         Text(
-                            text = "Usuario: $userId",
+                            text = "Bandeja de Notificaciones",
                             fontSize = 11.sp,
                             color = TaxflowTextMuted
                         )

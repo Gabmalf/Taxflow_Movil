@@ -1,8 +1,8 @@
 package com.gmaldonado.taxflow_movil.data.remote
 
+import com.gmaldonado.taxflow_movil.data.repository.TaxflowRepository
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
-import okhttp3.Response
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -11,7 +11,20 @@ import java.util.concurrent.TimeUnit
 object ApiClient {
     private const val BASE_URL = "https://8cspr7pmca.execute-api.us-east-1.amazonaws.com/"
 
-    // Rate limiting interceptor with exponential backoff on HTTP 429
+    // Inyecta Authorization: Bearer <token> si hay sesión activa
+    private val authInterceptor = Interceptor { chain ->
+        val original = chain.request()
+        val token = TaxflowRepository.getAuthToken()
+        val builder = original.newBuilder()
+
+        if (!token.isNullOrBlank()) {
+            builder.header("Authorization", "Bearer $token")
+        }
+
+        chain.proceed(builder.build())
+    }
+
+    // Rate limiting interceptor con retroceso exponencial ante HTTP 429
     private val rateLimitRetryInterceptor = Interceptor { chain ->
         var response = chain.proceed(chain.request())
         var attempt = 0
@@ -35,11 +48,12 @@ object ApiClient {
         }
 
         OkHttpClient.Builder()
+            .addInterceptor(authInterceptor)
             .addInterceptor(rateLimitRetryInterceptor)
             .addInterceptor(logging)
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 

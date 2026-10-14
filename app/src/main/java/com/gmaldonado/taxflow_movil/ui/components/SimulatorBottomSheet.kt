@@ -28,7 +28,6 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SimulatorBottomSheet(
-    userId: String,
     onDismiss: () -> Unit,
     onSimulationDone: (SimulationResultDto) -> Unit = {}
 ) {
@@ -351,13 +350,11 @@ fun SimulatorBottomSheet(
                     scope.launch {
                         val result = if (selectedType == 0) {
                             TaxflowRepository.simulateIncome(
-                                userId = userId,
                                 montoCentimos = grossCentimos,
                                 aplicarRetencion = applyRetention
                             )
                         } else {
                             TaxflowRepository.simulateExpense(
-                                userId = userId,
                                 montoCentimos = grossCentimos,
                                 categoria = selectedCategory
                             )

@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gmaldonado.taxflow_movil.data.formatters.Formatters
 import com.gmaldonado.taxflow_movil.data.remote.models.DashboardResponse
-import com.gmaldonado.taxflow_movil.data.remote.models.DemoUser
+import com.gmaldonado.taxflow_movil.data.remote.models.ProfileDto
 import com.gmaldonado.taxflow_movil.data.remote.models.RecentActivityDto
 import com.gmaldonado.taxflow_movil.data.repository.TaxflowRepository
 import com.gmaldonado.taxflow_movil.ui.components.ReceiptData
@@ -30,23 +30,22 @@ import kotlin.math.min
 
 @Composable
 fun DashboardScreen(
-    currentUser: DemoUser?,
+    currentUser: ProfileDto?,
     onNavigateToIngresos: () -> Unit,
     onNavigateToGastos: () -> Unit,
     onNavigateToSunat: () -> Unit,
     onReceiptClick: (ReceiptData) -> Unit
 ) {
-    val userId = currentUser?.id ?: "demo-01"
     var dashboardData by remember { mutableStateOf<DashboardResponse?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var refreshTrigger by remember { mutableStateOf(0) }
 
-    LaunchedEffect(userId, refreshTrigger) {
+    LaunchedEffect(currentUser?.id, refreshTrigger) {
         isLoading = true
         errorMessage = null
         val token = TaxflowRepository.getSessionToken()
-        val result = TaxflowRepository.getDashboard(userId = userId, anio = 2026, mes = 9)
+        val result = TaxflowRepository.getDashboard(anio = 2026, mes = 9)
 
         // Only commit result if session token hasn't changed (discard stale responses)
         if (token == TaxflowRepository.getSessionToken()) {
@@ -138,7 +137,7 @@ fun DashboardScreen(
             ) {
                 Column {
                     Text(
-                        text = "4TA CATEGORÍA · DÍGITO RUC: ${currentUser?.ultimoDigitoRuc ?: 1}",
+                        text = "4TA CATEGORÍA · DÍGITO RUC: ${currentUser?.ultimoDigitoRuc ?: "—"}",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = TaxflowTextMuted,
@@ -193,7 +192,7 @@ fun DashboardScreen(
                                 .background(TaxflowAmber, CircleShape)
                         )
                         Text(
-                            text = "Cronograma SUNAT · Dígito ${currentUser?.ultimoDigitoRuc ?: 1}",
+                            text = "Cronograma SUNAT · Dígito ${currentUser?.ultimoDigitoRuc ?: "—"}",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = TaxflowTextPrimary

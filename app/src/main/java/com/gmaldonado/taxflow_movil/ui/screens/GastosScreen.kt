@@ -23,9 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gmaldonado.taxflow_movil.data.formatters.Formatters
-import com.gmaldonado.taxflow_movil.data.remote.models.DemoUser
 import com.gmaldonado.taxflow_movil.data.remote.models.ExpenseDto
 import com.gmaldonado.taxflow_movil.data.remote.models.ExpenseListResponse
+import com.gmaldonado.taxflow_movil.data.remote.models.ProfileDto
 import com.gmaldonado.taxflow_movil.data.repository.TaxflowRepository
 import com.gmaldonado.taxflow_movil.ui.components.ReceiptData
 import com.gmaldonado.taxflow_movil.ui.theme.*
@@ -33,10 +33,9 @@ import kotlin.math.min
 
 @Composable
 fun GastosScreen(
-    currentUser: DemoUser?,
+    currentUser: ProfileDto?,
     onReceiptClick: (ReceiptData) -> Unit
 ) {
-    val userId = currentUser?.id ?: "demo-01"
     var selectedCategory by remember { mutableStateOf("all") }
 
     var expenseResponse by remember { mutableStateOf<ExpenseListResponse?>(null) }
@@ -44,13 +43,13 @@ fun GastosScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var refreshTrigger by remember { mutableStateOf(0) }
 
-    LaunchedEffect(userId, selectedCategory, refreshTrigger) {
+    LaunchedEffect(currentUser?.id, selectedCategory, refreshTrigger) {
         isLoading = true
         errorMessage = null
 
         val catParam = if (selectedCategory == "all") null else selectedCategory
         val token = TaxflowRepository.getSessionToken()
-        val result = TaxflowRepository.getExpenses(userId = userId, categoria = catParam)
+        val result = TaxflowRepository.getExpenses(categoria = catParam)
 
         if (token == TaxflowRepository.getSessionToken()) {
             result.onSuccess {
