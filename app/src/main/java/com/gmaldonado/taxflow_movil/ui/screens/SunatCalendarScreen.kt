@@ -13,7 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,55 +22,40 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gmaldonado.taxflow_movil.data.formatters.Formatters
+import com.gmaldonado.taxflow_movil.data.remote.models.CalendarItemDto
+import com.gmaldonado.taxflow_movil.data.remote.models.DemoUser
+import com.gmaldonado.taxflow_movil.data.repository.TaxflowRepository
 import com.gmaldonado.taxflow_movil.ui.theme.*
 
-data class SunatObligation(
-    val title: String,
-    val dueDate: String,
-    val formCode: String,
-    val statusText: String,
-    val isUrgent: Boolean = false,
-    val isCompleted: Boolean = false,
-    val details: String
-)
-
 @Composable
-fun SunatCalendarScreen() {
+fun SunatCalendarScreen(
+    currentUser: DemoUser?
+) {
+    val userId = currentUser?.id ?: "demo-01"
     val context = LocalContext.current
 
-    val obligations = listOf(
-        SunatObligation(
-            title = "Declara Fácil 616 - Renta 4ta Mensual",
-            dueDate = "Viernes 18 de Septiembre 2026",
-            formCode = "Formulario Virtual 616",
-            statusText = "Vence en 2 días",
-            isUrgent = true,
-            details = "Obligatorio si tus ingresos del mes superan S/ 3,755 y no cuentas con suspensión de retenciones."
-        ),
-        SunatObligation(
-            title = "Declaración Jurada Anual 2025/2026",
-            dueDate = "26 de Marzo 2027 (Dígito 4)",
-            formCode = "Formulario Virtual 709",
-            statusText = "Programado",
-            details = "Regularización anual de rentas de trabajo de 4ta y 5ta categoría. Se deduce automáticamente las 7 UIT + hasta 3 UIT."
-        ),
-        SunatObligation(
-            title = "Suspensión de Retenciones 4ta Categoría",
-            dueDate = "Vigente hasta el 31 Dic 2026",
-            formCode = "Formulario Virtual 1609",
-            statusText = "Aprobado / Activo",
-            isCompleted = true,
-            details = "Constancia N° 2600192841 autorizada para no sufrir retenciones del 8% al no proyectar superar S/ 45,063 anuales."
-        ),
-        SunatObligation(
-            title = "Declara Fácil 616 - Agosto 2026",
-            dueDate = "17 de Agosto 2026",
-            formCode = "Formulario Virtual 616",
-            statusText = "Presentado",
-            isCompleted = true,
-            details = "Declaración presentada y pagada a tiempo. N° de orden: 981240182."
-        )
-    )
+    var calendarItems by remember { mutableStateOf<List<CalendarItemDto>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var refreshTrigger by remember { mutableStateOf(0) }
+
+    LaunchedEffect(userId, refreshTrigger) {
+        isLoading = true
+        errorMessage = null
+        val token = TaxflowRepository.getSessionToken()
+        val result = TaxflowRepository.getCalendar(userId = userId, anio = 2026)
+
+        if (token == TaxflowRepository.getSessionToken()) {
+            result.onSuccess {
+                calendarItems = it.items
+                isLoading = false
+            }.onFailure {
+                errorMessage = "Error al obtener cronograma desde AWS: ${it.localizedMessage}"
+                isLoading = false
+            }
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -88,14 +73,14 @@ fun SunatCalendarScreen() {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "CRONOGRAMA OFICIAL SUNAT",
+                        text = "CRONOGRAMA SUNAT (AWS DYNAMODB)",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = TaxflowEmeraldDark,
                         letterSpacing = 0.5.sp
                     )
                     Text(
-                        text = "Último dígito: 4",
+                        text = "Último dígito: ${currentUser?.ultimoDigitoRuc ?: 1}",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = TaxflowNavy
@@ -108,7 +93,7 @@ fun SunatCalendarScreen() {
                     color = TaxflowTextPrimary
                 )
                 Text(
-                    text = "Vencimientos según Resolución de Superintendencia para personas naturales.",
+                    text = "Fechas límite oficiales para rentas de 4ta categoría.",
                     fontSize = 13.sp,
                     color = TaxflowTextMuted
                 )
@@ -141,13 +126,13 @@ fun SunatCalendarScreen() {
                     }
                     Column {
                         Text(
-                            text = "¡Alerta de Vencimiento Cercano!",
+                            text = "Cronograma Fiscal Asignado",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = TaxflowNavy
                         )
                         Text(
-                            text = "El periodo tributario 2026-08 para RUC dígito 4 vence este viernes 18.",
+                            text = "Obligaciones programadas para ${currentUser?.nombre ?: "Usuario Demo"} (RUC termina en ${currentUser?.ultimoDigitoRuc ?: 1}).",
                             fontSize = 12.sp,
                             color = TaxflowTextMuted
                         )
@@ -156,108 +141,168 @@ fun SunatCalendarScreen() {
             }
         }
 
-        // Obligations List
-        items(obligations) { ob ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = TaxflowSurfaceContainerLowest),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(
+        if (isLoading && calendarItems.isEmpty()) {
+            item {
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .height(140.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
+                    CircularProgressIndicator(color = TaxflowEmerald)
+                }
+            }
+        } else if (errorMessage != null && calendarItems.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = TaxflowSurfaceContainerLowest)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = ob.formCode,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TaxflowTextMuted
-                            )
-                            Text(
-                                text = ob.title,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TaxflowTextPrimary
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    when {
-                                        ob.isUrgent -> TaxflowAmberContainer
-                                        ob.isCompleted -> TaxflowEmeraldContainer
-                                        else -> TaxflowSurfaceContainerLow
-                                    },
-                                    RoundedCornerShape(8.dp)
-                                )
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = ob.statusText,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = when {
-                                    ob.isUrgent -> TaxflowAmber
-                                    ob.isCompleted -> TaxflowEmeraldDark
-                                    else -> TaxflowTextMuted
-                                }
-                            )
+                        Text(errorMessage ?: "", color = TaxflowCoralRed, fontSize = 13.sp)
+                        Button(onClick = { refreshTrigger++ }, colors = ButtonDefaults.buttonColors(containerColor = TaxflowNavy)) {
+                            Text("Reintentar")
                         }
                     }
+                }
+            }
+        } else if (calendarItems.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = TaxflowSurfaceContainerLowest)
+                ) {
+                    Box(modifier = Modifier.padding(24.dp), contentAlignment = Alignment.Center) {
+                        Text("No hay obligaciones programadas para este usuario", fontSize = 13.sp, color = TaxflowTextMuted)
+                    }
+                }
+            }
+        } else {
+            items(calendarItems) { item ->
+                val isPresented = item.estado == "PRESENTADO"
+                val isActive = item.estado == "ACTIVO"
+                val isPending = item.estado == "PENDIENTE"
 
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = TaxflowSurfaceContainerLowest),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = item.formulario,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TaxflowTextMuted
+                                )
+                                Text(
+                                    text = item.titulo,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TaxflowTextPrimary
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        when {
+                                            isPresented -> TaxflowEmeraldContainer
+                                            isActive -> TaxflowEmeraldContainer.copy(alpha = 0.5f)
+                                            else -> TaxflowAmberContainer
+                                        },
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = item.estado,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = when {
+                                        isPresented -> TaxflowEmeraldDark
+                                        isActive -> TaxflowEmeraldDark
+                                        else -> TaxflowAmberDark
+                                    }
+                                )
+                            }
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Default.CalendarToday, contentDescription = null, tint = TaxflowTextMuted, modifier = Modifier.size(14.dp))
+                            Text(
+                                text = "Vencimiento: ${Formatters.formatIsoDate(item.fecha)}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isPending) TaxflowAmberDark else TaxflowTextPrimary
+                            )
+                        }
+
+                        Text(
+                            text = item.detalle,
+                            fontSize = 12.sp,
+                            color = TaxflowTextMuted,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // External Link to SUNAT
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.sunat.gob.pe"))
+                        context.startActivity(browserIntent)
+                    },
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = TaxflowSurfaceContainerLowest),
+                border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(TaxflowBorder))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Event, contentDescription = null, tint = TaxflowEmerald, modifier = Modifier.size(16.dp))
+                        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, tint = TaxflowEmerald, modifier = Modifier.size(18.dp))
                         Text(
-                            text = ob.dueDate,
+                            text = "Consultar en Portal SUNAT Oficial",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = TaxflowTextPrimary
                         )
                     }
-
-                    Text(
-                        text = ob.details,
-                        fontSize = 12.sp,
-                        color = TaxflowTextMuted,
-                        lineHeight = 16.sp
-                    )
-                }
-            }
-        }
-
-        // Link to SUNAT portal
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Button(
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://e-menu.sunat.gob.pe"))
-                        context.startActivity(intent)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = TaxflowNavy)
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Ingresar a SUNAT Operaciones en Línea", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TaxflowTextMuted, modifier = Modifier.size(18.dp))
                 }
             }
         }

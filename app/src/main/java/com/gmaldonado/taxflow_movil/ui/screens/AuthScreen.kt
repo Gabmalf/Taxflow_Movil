@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -28,23 +27,37 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gmaldonado.taxflow_movil.R
+import com.gmaldonado.taxflow_movil.data.remote.models.DemoUser
+import com.gmaldonado.taxflow_movil.data.repository.TaxflowRepository
 import com.gmaldonado.taxflow_movil.ui.theme.*
 
 @Composable
 fun AuthScreen(
     initialIsSignUp: Boolean = true,
     onBackClick: () -> Unit,
-    onAuthSuccess: () -> Unit
+    onAuthSuccess: (DemoUser) -> Unit
 ) {
     var isSignUp by remember { mutableStateOf(initialIsSignUp) }
-    var fullName by remember { mutableStateOf("Carlos Mendoza Ramos") }
-    var email by remember { mutableStateOf("carlos.mendoza@email.com") }
-    var password by remember { mutableStateOf("ContraseñaSegura2026#") }
-    var ruc by remember { mutableStateOf("10458923014") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var termsAccepted by remember { mutableStateOf(true) }
+
+    var demoUsers by remember { mutableStateOf<List<DemoUser>>(emptyList()) }
+    var selectedUser by remember { mutableStateOf<DemoUser?>(null) }
+    var isLoadingUsers by remember { mutableStateOf(true) }
 
     val scrollState = rememberScrollState()
+
+    LaunchedEffect(Unit) {
+        val res = TaxflowRepository.fetchDemoUsers()
+        res.onSuccess { users ->
+            demoUsers = users
+            if (users.isNotEmpty()) {
+                selectedUser = users.first()
+            }
+            isLoadingUsers = false
+        }.onFailure {
+            isLoadingUsers = false
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -109,9 +122,9 @@ fun AuthScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Lock,
+                    imageVector = Icons.Default.Cloud,
                     contentDescription = null,
-                    tint = TaxflowTextMuted,
+                    tint = TaxflowEmerald,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -121,236 +134,186 @@ fun AuthScreen(
 
         // Headline
         Text(
-            text = if (isSignUp) "Crea tu cuenta" else "Iniciar sesión",
-            fontSize = 26.sp,
+            text = "Acceso Demo en la Nube",
+            fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = TaxflowTextPrimary
         )
         Text(
-            text = "Gestiona tus impuestos de 4ta categoría de forma automática y segura.",
-            fontSize = 14.sp,
+            text = "Conexión en vivo con base de datos AWS DynamoDB y API REST Gateway.",
+            fontSize = 13.sp,
             color = TaxflowTextMuted,
-            modifier = Modifier.padding(top = 4.dp, bottom = 18.dp)
+            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
         )
 
-        // Segmented Control
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(TaxflowSurfaceContainerLow, RoundedCornerShape(12.dp))
-                .padding(4.dp)
+        // Demo User Selector Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = TaxflowSurfaceContainerLowest),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Button(
-                onClick = { isSignUp = true },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isSignUp) TaxflowSurfaceContainerLowest else Color.Transparent,
-                    contentColor = if (isSignUp) TaxflowTextPrimary else TaxflowTextMuted
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = if (isSignUp) 2.dp else 0.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("Registrarse", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            }
-
-            Button(
-                onClick = { isSignUp = false },
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (!isSignUp) TaxflowSurfaceContainerLowest else Color.Transparent,
-                    contentColor = if (!isSignUp) TaxflowTextPrimary else TaxflowTextMuted
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = if (!isSignUp) 2.dp else 0.dp)
-            ) {
-                Text("Iniciar sesión", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Form Fields
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            // Full Name (Only on Sign Up)
-            if (isSignUp) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Nombre completo", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TaxflowTextPrimary)
-                        Text("Como figura en tu DNI", fontSize = 11.sp, color = TaxflowTextMuted)
-                    }
-                    OutlinedTextField(
-                        value = fullName,
-                        onValueChange = { fullName = it },
-                        placeholder = { Text("Ej. Carlos Mendoza Ramos") },
-                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = TaxflowTextMuted) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = TaxflowSurfaceContainerLowest,
-                            unfocusedContainerColor = TaxflowSurfaceContainerLowest,
-                            focusedBorderColor = TaxflowNavy,
-                            unfocusedBorderColor = TaxflowBorder
-                        )
-                    )
-                }
-            }
-
-            // Email
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Correo electrónico", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TaxflowTextPrimary)
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    placeholder = { Text("tu.correo@ejemplo.com") },
-                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = TaxflowTextMuted) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = TaxflowSurfaceContainerLowest,
-                        unfocusedContainerColor = TaxflowSurfaceContainerLowest,
-                        focusedBorderColor = TaxflowNavy,
-                        unfocusedBorderColor = TaxflowBorder
-                    )
-                )
-            }
-
-            // Password
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Contraseña de acceso", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TaxflowTextPrimary)
-                    if (isSignUp) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = TaxflowEmerald, modifier = Modifier.size(13.dp))
-                            Text("Segura (8+ car.)", fontSize = 11.sp, color = TaxflowEmerald, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = "PERFILES FICTICIOS EN AWS",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TaxflowEmeraldDark,
+                        letterSpacing = 0.5.sp
+                    )
+                    Text(
+                        text = "Selector Demo",
+                        fontSize = 11.sp,
+                        color = TaxflowTextMuted
+                    )
+                }
+
+                if (isLoadingUsers) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = TaxflowEmerald)
+                    }
+                } else if (demoUsers.isEmpty()) {
+                    Text(
+                        text = "No se pudieron obtener usuarios de AWS. Verifique la conexión a Internet.",
+                        color = TaxflowCoralRed,
+                        fontSize = 12.sp
+                    )
+                } else {
+                    demoUsers.forEach { user ->
+                        val isSelected = selectedUser?.id == user.id
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedUser = user
+                                    TaxflowRepository.selectUser(user)
+                                    onAuthSuccess(user)
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) TaxflowEmeraldContainer.copy(alpha = 0.5f) else TaxflowSurfaceContainerLow
+                            ),
+                            border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, TaxflowEmerald) else null
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isSelected) TaxflowEmerald else TaxflowSurfaceContainerLowest),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = user.id.takeLast(2),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = if (isSelected) Color.White else TaxflowTextPrimary
+                                        )
+                                    }
+
+                                    Column {
+                                        Text(
+                                            text = user.nombre,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TaxflowTextPrimary
+                                        )
+                                        Text(
+                                            text = "${user.profesion} • RUC: ...${user.ultimoDigitoRuc}",
+                                            fontSize = 12.sp,
+                                            color = TaxflowTextMuted
+                                        )
+                                    }
+                                }
+
+                                Icon(
+                                    imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = if (isSelected) TaxflowEmerald else TaxflowTextMuted,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 }
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    placeholder = { Text("Mínimo 8 caracteres") },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = TaxflowTextMuted) },
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = if (passwordVisible) "Ocultar" else "Mostrar",
-                                tint = TaxflowTextMuted
-                            )
-                        }
-                    },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = TaxflowSurfaceContainerLowest,
-                        unfocusedContainerColor = TaxflowSurfaceContainerLowest,
-                        focusedBorderColor = TaxflowNavy,
-                        unfocusedBorderColor = TaxflowBorder
-                    )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Direct Login Button
+        selectedUser?.let { user ->
+            Button(
+                onClick = {
+                    TaxflowRepository.selectUser(user)
+                    onAuthSuccess(user)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = TaxflowNavy)
+            ) {
+                Text(
+                    text = "Entrar como ${user.nombre}",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
                 )
-            }
-
-            // RUC (11 digits)
-            if (isSignUp) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("RUC (11 dígitos)", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TaxflowTextPrimary)
-                    OutlinedTextField(
-                        value = ruc,
-                        onValueChange = { if (it.length <= 11 && it.all { ch -> ch.isDigit() }) ruc = it },
-                        placeholder = { Text("10XXXXXXXXX") },
-                        leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null, tint = TaxflowTextMuted) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = TaxflowSurfaceContainerLowest,
-                            unfocusedContainerColor = TaxflowSurfaceContainerLowest,
-                            focusedBorderColor = TaxflowNavy,
-                            unfocusedBorderColor = TaxflowBorder
-                        )
-                    )
-                }
-
-                // Terms checkbox
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { termsAccepted = !termsAccepted }
-                        .padding(vertical = 4.dp)
-                ) {
-                    Checkbox(
-                        checked = termsAccepted,
-                        onCheckedChange = { termsAccepted = it },
-                        colors = CheckboxDefaults.colors(checkedColor = TaxflowNavy)
-                    )
-                    Text(
-                        text = "Acepto los Términos de Servicio y la Política de Privacidad respaldada por SUNAT.",
-                        fontSize = 12.sp,
-                        color = TaxflowTextMuted,
-                        lineHeight = 16.sp
-                    )
-                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // Submit Button
-        Button(
-            onClick = onAuthSuccess,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = TaxflowNavy)
-        ) {
-            Text(
-                text = if (isSignUp) "Crear cuenta" else "Ingresar a Taxflow",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
-        }
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Security footer
+        // Security / Demo footer
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            if (!isSignUp) {
-                Text(
-                    text = "¿Olvidaste tu contraseña?",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = TaxflowTextMuted
-                )
-            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Icon(Icons.Default.Lock, contentDescription = null, tint = TaxflowEmerald, modifier = Modifier.size(14.dp))
+                Icon(Icons.Default.CloudQueue, contentDescription = null, tint = TaxflowEmerald, modifier = Modifier.size(16.dp))
                 Text(
-                    text = "Conexión cifrada de 256 bits con clave SOL",
-                    fontSize = 12.sp,
+                    text = "API REST AWS: execute-api.us-east-1.amazonaws.com",
+                    fontSize = 11.sp,
                     color = TaxflowTextMuted
                 )
             }
+            Text(
+                text = "Modo Demostración Académica · Datos ficticios en DynamoDB",
+                fontSize = 11.sp,
+                color = TaxflowTextMuted
+            )
         }
     }
 }

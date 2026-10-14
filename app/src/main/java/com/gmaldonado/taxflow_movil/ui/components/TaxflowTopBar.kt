@@ -23,10 +23,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gmaldonado.taxflow_movil.R
+import com.gmaldonado.taxflow_movil.data.remote.models.DemoUser
 import com.gmaldonado.taxflow_movil.ui.theme.*
 
 @Composable
 fun TaxflowTopBar(
+    currentUser: DemoUser? = null,
     title: String? = null,
     subtitle: String? = null,
     unreadNotifications: Boolean = true,
@@ -73,7 +75,7 @@ fun TaxflowTopBar(
                                 .padding(horizontal = 5.dp, vertical = 1.dp)
                         ) {
                             Text(
-                                text = "4TA",
+                                text = currentUser?.id?.uppercase() ?: "DEMO-01",
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = TaxflowEmeraldDark
@@ -81,7 +83,7 @@ fun TaxflowTopBar(
                         }
                     }
                     Text(
-                        text = "Perú · Independientes",
+                        text = "${currentUser?.nombre ?: "Usuario demo"} (AWS)",
                         fontSize = 11.sp,
                         color = TaxflowTextMuted
                     )
@@ -141,7 +143,7 @@ fun TaxflowTopBar(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .border(1.5.dp, TaxflowBorder, CircleShape)
+                    .border(1.5.dp, TaxflowEmerald, CircleShape)
                     .clickable { onProfileClick() }
             ) {
                 Image(

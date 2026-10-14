@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import com.gmaldonado.taxflow_movil.data.formatters.Formatters
+import com.gmaldonado.taxflow_movil.data.remote.models.DemoUser
+import com.gmaldonado.taxflow_movil.data.repository.TaxflowRepository
 import com.gmaldonado.taxflow_movil.ui.components.*
 import com.gmaldonado.taxflow_movil.ui.screens.*
 import com.gmaldonado.taxflow_movil.ui.theme.TaxflowBackground
@@ -27,14 +30,21 @@ fun TaxflowApp() {
     var showProfile by remember { mutableStateOf(false) }
     var showNotifications by remember { mutableStateOf(false) }
 
+    val currentUser by TaxflowRepository.currentUser.collectAsState()
+
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        TaxflowRepository.fetchDemoUsers()
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             if (currentScreen == AppScreen.MAIN_APP) {
                 TaxflowTopBar(
+                    currentUser = currentUser,
                     title = when (currentBottomTab) {
                         BottomTab.INICIO -> null
                         BottomTab.INGRESOS -> "Mis Ingresos"
@@ -45,7 +55,7 @@ fun TaxflowApp() {
                         BottomTab.INICIO -> null
                         BottomTab.INGRESOS -> "4ta Categoría"
                         BottomTab.GASTOS -> "3 UIT Deducibles"
-                        BottomTab.SUNAT -> "Dígito RUC: 4"
+                        BottomTab.SUNAT -> "Dígito RUC: ${currentUser?.ultimoDigitoRuc ?: 1}"
                     },
                     onNotificationClick = { showNotifications = true },
                     onProfileClick = { showProfile = true }
@@ -73,7 +83,12 @@ fun TaxflowApp() {
                     OnboardingScreen(
                         onStartClick = { currentScreen = AppScreen.AUTH_SIGNUP },
                         onLoginClick = { currentScreen = AppScreen.AUTH_LOGIN },
-                        onSkipClick = { currentScreen = AppScreen.MAIN_APP }
+                        onSkipClick = {
+                            if (currentUser == null && TaxflowRepository.cachedUsers.isNotEmpty()) {
+                                TaxflowRepository.selectUser(TaxflowRepository.cachedUsers.first())
+                            }
+                            currentScreen = AppScreen.MAIN_APP
+                        }
                     )
                 }
 
@@ -81,10 +96,10 @@ fun TaxflowApp() {
                     AuthScreen(
                         initialIsSignUp = true,
                         onBackClick = { currentScreen = AppScreen.ONBOARDING },
-                        onAuthSuccess = {
+                        onAuthSuccess = { user ->
                             currentScreen = AppScreen.MAIN_APP
                             scope.launch {
-                                snackbarHostState.showSnackbar("¡Bienvenido a Taxflow Perú, Carlos!")
+                                snackbarHostState.showSnackbar("Bienvenido a Taxflow, ${user.nombre} (${user.id})")
                             }
                         }
                     )
@@ -94,10 +109,10 @@ fun TaxflowApp() {
                     AuthScreen(
                         initialIsSignUp = false,
                         onBackClick = { currentScreen = AppScreen.ONBOARDING },
-                        onAuthSuccess = {
+                        onAuthSuccess = { user ->
                             currentScreen = AppScreen.MAIN_APP
                             scope.launch {
-                                snackbarHostState.showSnackbar("Sesión iniciada con Clave SOL correctamente")
+                                snackbarHostState.showSnackbar("Sesión iniciada como ${user.nombre} (${user.id})")
                             }
                         }
                     )
@@ -110,6 +125,7 @@ fun TaxflowApp() {
                     ) { tab ->
                         when (tab) {
                             BottomTab.INICIO -> DashboardScreen(
+                                currentUser = currentUser,
                                 onNavigateToIngresos = { currentBottomTab = BottomTab.INGRESOS },
                                 onNavigateToGastos = { currentBottomTab = BottomTab.GASTOS },
                                 onNavigateToSunat = { currentBottomTab = BottomTab.SUNAT },
@@ -117,14 +133,18 @@ fun TaxflowApp() {
                             )
 
                             BottomTab.INGRESOS -> IngresosScreen(
+                                currentUser = currentUser,
                                 onReceiptClick = { selectedReceipt = it }
                             )
 
                             BottomTab.GASTOS -> GastosScreen(
+                                currentUser = currentUser,
                                 onReceiptClick = { selectedReceipt = it }
                             )
 
-                            BottomTab.SUNAT -> SunatCalendarScreen()
+                            BottomTab.SUNAT -> SunatCalendarScreen(
+                                currentUser = currentUser
+                            )
                         }
                     }
                 }
@@ -139,9 +159,17 @@ fun TaxflowApp() {
             )
         }
 
-        // Profile Dialog
+        // Profile Dialog with User Switching
         if (showProfile) {
             ProfileDialog(
+                currentUser = currentUser,
+                userList = TaxflowRepository.cachedUsers,
+                onSelectUser = { newUser ->
+                    TaxflowRepository.selectUser(newUser)
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Cambiado a ${newUser.nombre} (${newUser.id})")
+                    }
+                },
                 onDismiss = { showProfile = false },
                 onLogout = {
                     showProfile = false
@@ -156,6 +184,7 @@ fun TaxflowApp() {
         // Notifications Dialog
         if (showNotifications) {
             NotificationsDialog(
+                userId = currentUser?.id ?: "demo-01",
                 onDismiss = { showNotifications = false }
             )
         }
@@ -163,10 +192,12 @@ fun TaxflowApp() {
         // Simulator / Register Bottom Sheet
         if (showSimulator) {
             SimulatorBottomSheet(
+                userId = currentUser?.id ?: "demo-01",
                 onDismiss = { showSimulator = false },
-                onSimulateSuccess = { client, gross, retention, net ->
+                onSimulationDone = { result ->
                     scope.launch {
-                        snackbarHostState.showSnackbar("Comprobante de S/ %,.2f registrado en el prototipo".format(gross))
+                        val formatted = Formatters.formatCentimosAsPen(result.montoCentimos)
+                        snackbarHostState.showSnackbar("Simulación de $formatted calculada en AWS Lambda (${result.reglasVersion})")
                     }
                 }
             )

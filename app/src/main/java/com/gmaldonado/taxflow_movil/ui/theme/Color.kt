@@ -17,6 +17,7 @@ val TaxflowOnSecondaryContainer = Color(0xFF00714D)
 // Status Cues
 val TaxflowAmber = Color(0xFFF59E0B)
 val TaxflowAmberContainer = Color(0xFFFEF3C7)
+val TaxflowAmberDark = Color(0xFFB45309)
 val TaxflowCoralRed = Color(0xFFEF4444)
 val TaxflowRedContainer = Color(0xFFFEE2E2)
 

@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,105 +22,48 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gmaldonado.taxflow_movil.data.formatters.Formatters
+import com.gmaldonado.taxflow_movil.data.remote.models.DemoUser
+import com.gmaldonado.taxflow_movil.data.remote.models.ExpenseDto
+import com.gmaldonado.taxflow_movil.data.remote.models.ExpenseListResponse
+import com.gmaldonado.taxflow_movil.data.repository.TaxflowRepository
 import com.gmaldonado.taxflow_movil.ui.components.ReceiptData
 import com.gmaldonado.taxflow_movil.ui.theme.*
-
-data class ExpenseItem(
-    val title: String,
-    val dateAndTotal: String,
-    val deductibleAmount: String,
-    val percentageLabel: String,
-    val category: String,
-    val icon: ImageVector,
-    val fullReceipt: ReceiptData
-)
+import kotlin.math.min
 
 @Composable
 fun GastosScreen(
+    currentUser: DemoUser?,
     onReceiptClick: (ReceiptData) -> Unit
 ) {
+    val userId = currentUser?.id ?: "demo-01"
     var selectedCategory by remember { mutableStateOf("all") }
 
-    val expenses = remember {
-        listOf(
-            ExpenseItem(
-                title = "Restaurante Central",
-                dateAndTotal = "14 Sep 2026 • Total S/ 320.00",
-                deductibleAmount = "+ S/ 48.00",
-                percentageLabel = "15% deducido",
-                category = "restaurantes",
-                icon = Icons.Default.Restaurant,
-                fullReceipt = ReceiptData(
-                    title = "Restaurante Central SAC",
-                    seriesNumber = "B001-44910",
-                    date = "14 Sep 2026",
-                    grossAmount = 320.0,
-                    retentionAmount = 0.0,
-                    netAmount = 320.0,
-                    status = "Validado SUNAT (15%)",
-                    type = "Boleta Electrónica con DNI"
-                )
-            ),
-            ExpenseItem(
-                title = "Dr. Mario Benavides",
-                dateAndTotal = "10 Sep 2026 • Total S/ 300.00",
-                deductibleAmount = "+ S/ 90.00",
-                percentageLabel = "30% deducido",
-                category = "servicios",
-                icon = Icons.Default.MedicalServices,
-                fullReceipt = ReceiptData(
-                    title = "Dr. Mario Benavides (Médico Cirujano)",
-                    seriesNumber = "RHE E001-12",
-                    date = "10 Sep 2026",
-                    grossAmount = 300.0,
-                    retentionAmount = 0.0,
-                    netAmount = 300.0,
-                    status = "Validado SUNAT (30%)",
-                    type = "Recibo por Honorarios Profesional de Salud"
-                )
-            ),
-            ExpenseItem(
-                title = "Hotel Valle Sagrado",
-                dateAndTotal = "22 Ago 2026 • Total S/ 850.00",
-                deductibleAmount = "+ S/ 127.50",
-                percentageLabel = "15% deducido",
-                category = "alojamiento",
-                icon = Icons.Default.Hotel,
-                fullReceipt = ReceiptData(
-                    title = "Inversiones Turísticas Cusco SAC",
-                    seriesNumber = "F003-12093",
-                    date = "22 Ago 2026",
-                    grossAmount = 850.0,
-                    retentionAmount = 0.0,
-                    netAmount = 850.0,
-                    status = "Validado SUNAT (15%)",
-                    type = "Factura de Alojamiento y Hospedaje"
-                )
-            ),
-            ExpenseItem(
-                title = "Formulario 1676 EsSalud",
-                dateAndTotal = "15 Ago 2026 • Total S/ 178.00",
-                deductibleAmount = "+ S/ 178.00",
-                percentageLabel = "100% deducido",
-                category = "essalud",
-                icon = Icons.Default.VolunteerActivism,
-                fullReceipt = ReceiptData(
-                    title = "SUNAT / EsSalud Trabajador del Hogar",
-                    seriesNumber = "F1676-9481",
-                    date = "15 Ago 2026",
-                    grossAmount = 178.0,
-                    retentionAmount = 0.0,
-                    netAmount = 178.0,
-                    status = "Aporte 100% Deducible",
-                    type = "Guía Pago Fácil Trabajador del Hogar"
-                )
-            )
-        )
+    var expenseResponse by remember { mutableStateOf<ExpenseListResponse?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var refreshTrigger by remember { mutableStateOf(0) }
+
+    LaunchedEffect(userId, selectedCategory, refreshTrigger) {
+        isLoading = true
+        errorMessage = null
+
+        val catParam = if (selectedCategory == "all") null else selectedCategory
+        val token = TaxflowRepository.getSessionToken()
+        val result = TaxflowRepository.getExpenses(userId = userId, categoria = catParam)
+
+        if (token == TaxflowRepository.getSessionToken()) {
+            result.onSuccess {
+                expenseResponse = it
+                isLoading = false
+            }.onFailure {
+                errorMessage = "Error al consultar gastos en AWS: ${it.localizedMessage}"
+                isLoading = false
+            }
+        }
     }
 
-    val filteredExpenses = expenses.filter {
-        selectedCategory == "all" || it.category == selectedCategory
-    }
+    val tope3UitCentimos = 1650000L // S/ 16,500.00 en 2026
 
     LazyColumn(
         modifier = Modifier
@@ -137,14 +81,14 @@ fun GastosScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "SUNAT 2026 • 4TA CATEGORÍA",
+                        text = "SUNAT 2026 • 4TA CATEGORÍA (AWS)",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = TaxflowEmeraldDark,
                         letterSpacing = 0.5.sp
                     )
                     Text(
-                        text = "Tope Ley: 3 UIT",
+                        text = "Tope Ley: 3 UIT (S/ 16,500)",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = TaxflowTextMuted
@@ -157,7 +101,7 @@ fun GastosScreen(
                     color = TaxflowTextPrimary
                 )
                 Text(
-                    text = "Beneficio tributario para reducir el Impuesto a la Renta anual.",
+                    text = "Comprobantes electrónicos para reducir el Impuesto a la Renta anual.",
                     fontSize = 13.sp,
                     color = TaxflowTextMuted
                 )
@@ -166,6 +110,10 @@ fun GastosScreen(
 
         // 2. Central Progress Meter Hero Card
         item {
+            val deducibleCentimos = expenseResponse?.resumen?.deducibleCentimos ?: 0L
+            val progress = min(1.0f, deducibleCentimos.toFloat() / tope3UitCentimos.toFloat())
+            val percent = (progress * 100).toInt()
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -185,20 +133,20 @@ fun GastosScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Total deducible acumulado",
+                                text = "Deducción acumulada (Filtro Actual)",
                                 fontSize = 12.sp,
                                 color = TaxflowTextMuted
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Row(verticalAlignment = Alignment.Bottom) {
                                 Text(
-                                    text = "S/ 1,820.50",
+                                    text = Formatters.formatCentimosAsPen(deducibleCentimos),
                                     fontSize = 22.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TaxflowTextPrimary
                                 )
                                 Text(
-                                    text = " / S/ 15,450.00",
+                                    text = " / S/ 16,500.00",
                                     fontSize = 13.sp,
                                     color = TaxflowTextMuted
                                 )
@@ -211,7 +159,7 @@ fun GastosScreen(
                                 .padding(horizontal = 10.dp, vertical = 5.dp)
                         ) {
                             Text(
-                                text = "11.8% del tope",
+                                text = "$percent% del tope",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = TaxflowEmeraldDark
@@ -221,7 +169,7 @@ fun GastosScreen(
 
                     // Progress Bar
                     LinearProgressIndicator(
-                        progress = { 0.118f },
+                        progress = { progress },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(8.dp)
@@ -235,36 +183,22 @@ fun GastosScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("S/ 0", fontSize = 11.sp, color = TaxflowTextMuted)
-                        Text("Disponible: S/ 13,629.50", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TaxflowEmeraldDark)
-                        Text("Tope: S/ 15,450", fontSize = 11.sp, color = TaxflowTextMuted)
-                    }
-
-                    HorizontalDivider(color = TaxflowBorder, thickness = 1.dp)
-
-                    // Deduction Tags
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        DeductionTag("🍽️ Restaurantes 15%")
-                        DeductionTag("🩺 Médicos 30%")
-                        DeductionTag("🛡️ EsSalud 100%")
-                        DeductionTag("🏨 Hoteles 15%")
+                        val totalGasto = expenseResponse?.resumen?.totalCentimos ?: 0L
+                        Text("Total consumido: ${Formatters.formatCentimosAsPen(totalGasto)}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TaxflowTextPrimary)
+                        Text("Tope 3 UIT", fontSize = 11.sp, color = TaxflowTextMuted)
                     }
                 }
             }
         }
 
-        // 3. Category Filter Pills
+        // 3. Category Filter Chips
         item {
             val categories = listOf(
-                Pair("all", "Todos (18)"),
-                Pair("restaurantes", "Restaurantes"),
-                Pair("servicios", "Servicios Médicos"),
-                Pair("alojamiento", "Alojamiento"),
-                Pair("essalud", "EsSalud")
+                "all" to "Todos",
+                "restaurantes" to "Restaurantes (15%)",
+                "servicios" to "Servicios Médicos (30%)",
+                "alojamiento" to "Hoteles (15%)",
+                "essalud" to "EsSalud (100%)"
             )
 
             Row(
@@ -273,18 +207,18 @@ fun GastosScreen(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                categories.forEach { (catKey, catLabel) ->
-                    val isSelected = selectedCategory == catKey
+                categories.forEach { (catId, catLabel) ->
+                    val isSelected = selectedCategory == catId
                     Box(
                         modifier = Modifier
                             .clip(CircleShape)
                             .background(if (isSelected) TaxflowNavy else TaxflowSurfaceContainerLowest)
-                            .clickable { selectedCategory = catKey }
-                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                            .clickable { selectedCategory = catId }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = catLabel,
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             color = if (isSelected) Color.White else TaxflowTextMuted
                         )
@@ -293,122 +227,149 @@ fun GastosScreen(
             }
         }
 
-        // 4. Section title
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "COMPROBANTES VALIDADOS",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TaxflowTextMuted,
-                    letterSpacing = 0.5.sp
-                )
-                Text(
-                    text = "Sincronizado vía SUNAT",
-                    fontSize = 11.sp,
-                    color = TaxflowTextMuted
-                )
-            }
-        }
-
-        // 5. Expense Items
-        items(filteredExpenses) { item ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onReceiptClick(item.fullReceipt) },
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = TaxflowSurfaceContainerLowest),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Row(
+        // 4. Loading indicator or Error or Expenses List
+        if (isLoading && expenseResponse == null) {
+            item {
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .height(140.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.weight(1f)
+                    CircularProgressIndicator(color = TaxflowEmerald)
+                }
+            }
+        } else if (errorMessage != null && expenseResponse == null) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = TaxflowSurfaceContainerLowest)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(TaxflowSurfaceContainerLow),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = null,
-                                tint = TaxflowTextPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        Column {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = item.title,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = TaxflowTextPrimary
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = TaxflowEmerald,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                            Text(
-                                text = item.dateAndTotal,
-                                fontSize = 12.sp,
-                                color = TaxflowTextMuted
-                            )
+                        Text(errorMessage ?: "", color = TaxflowCoralRed, fontSize = 13.sp)
+                        Button(onClick = { refreshTrigger++ }, colors = ButtonDefaults.buttonColors(containerColor = TaxflowNavy)) {
+                            Text("Reintentar")
                         }
                     }
+                }
+            }
+        } else {
+            val items = expenseResponse?.items ?: emptyList()
+            if (items.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = TaxflowSurfaceContainerLowest)
+                    ) {
+                        Box(modifier = Modifier.padding(24.dp), contentAlignment = Alignment.Center) {
+                            Text("No hay gastos registrados en esta categoría", fontSize = 13.sp, color = TaxflowTextMuted)
+                        }
+                    }
+                }
+            } else {
+                items(items) { expense ->
+                    val icon: ImageVector = when (expense.categoria) {
+                        "restaurantes" -> Icons.Default.Restaurant
+                        "servicios" -> Icons.Default.MedicalServices
+                        "alojamiento" -> Icons.Default.Hotel
+                        "essalud" -> Icons.Default.VolunteerActivism
+                        else -> Icons.AutoMirrored.Filled.ReceiptLong
+                    }
+                    val catLabel = when (expense.categoria) {
+                        "restaurantes" -> "Restaurantes & Bares"
+                        "servicios" -> "Servicios Médicos / Salud"
+                        "alojamiento" -> "Hoteles & Hospedaje"
+                        "essalud" -> "Aporte Trabajador Hogar"
+                        else -> expense.categoria
+                    }
 
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = item.deductibleAmount,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TaxflowEmeraldDark
-                        )
-                        Text(
-                            text = item.percentageLabel,
-                            fontSize = 11.sp,
-                            color = TaxflowTextMuted
-                        )
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val receipt = ReceiptData(
+                                    title = expense.proveedor,
+                                    seriesNumber = "${expense.serie}-${expense.numero}",
+                                    date = Formatters.formatIsoDate(expense.fecha),
+                                    grossAmount = Formatters.centimosToPen(expense.montoCentimos),
+                                    netAmount = Formatters.centimosToPen(expense.montoCentimos),
+                                    isExpense = true,
+                                    deductibleAmount = Formatters.centimosToPen(expense.deducibleCentimos),
+                                    categoryLabel = catLabel,
+                                    status = expense.estado,
+                                    type = "Comprobante de Gasto Deducible"
+                                )
+                                onReceiptClick(receipt)
+                            },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = TaxflowSurfaceContainerLowest),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(TaxflowAmberContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        tint = TaxflowAmberDark,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                Column {
+                                    Text(
+                                        text = expense.proveedor,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = TaxflowTextPrimary
+                                    )
+                                    Text(
+                                        text = "${Formatters.formatIsoDate(expense.fecha)} • Total ${Formatters.formatCentimosAsPen(expense.montoCentimos)}",
+                                        fontSize = 11.sp,
+                                        color = TaxflowTextMuted
+                                    )
+                                }
+                            }
+
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "+ ${Formatters.formatCentimosAsPen(expense.deducibleCentimos)}",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TaxflowEmeraldDark
+                                )
+                                Text(
+                                    text = "${expense.porcentajeDeduciblePb / 100}% deducido",
+                                    fontSize = 11.sp,
+                                    color = TaxflowTextMuted
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun DeductionTag(text: String) {
-    Box(
-        modifier = Modifier
-            .background(TaxflowSurfaceContainerLow, RoundedCornerShape(8.dp))
-            .padding(horizontal = 8.dp, vertical = 5.dp)
-    ) {
-        Text(
-            text = text,
-            fontSize = 11.sp,
-            color = TaxflowTextMuted,
-            fontWeight = FontWeight.Medium
-        )
     }
 }

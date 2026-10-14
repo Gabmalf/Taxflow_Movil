@@ -3,6 +3,7 @@ package com.gmaldonado.taxflow_movil.ui.components
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,7 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,10 +25,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.gmaldonado.taxflow_movil.R
+import com.gmaldonado.taxflow_movil.data.formatters.Formatters
+import com.gmaldonado.taxflow_movil.data.remote.models.DemoUser
+import com.gmaldonado.taxflow_movil.data.remote.models.NotificationDto
+import com.gmaldonado.taxflow_movil.data.repository.TaxflowRepository
 import com.gmaldonado.taxflow_movil.ui.theme.*
 
 @Composable
 fun ProfileDialog(
+    currentUser: DemoUser?,
+    userList: List<DemoUser>,
+    onSelectUser: (DemoUser) -> Unit,
     onDismiss: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -48,8 +56,15 @@ fun ProfileDialog(
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Text(
+                        text = "Perfil Demo AWS",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TaxflowTextPrimary
+                    )
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = TaxflowTextMuted)
                     }
@@ -58,21 +73,28 @@ fun ProfileDialog(
                 // Avatar
                 Image(
                     painter = painterResource(id = R.drawable.avatar_carlos),
-                    contentDescription = "Carlos Mendoza",
+                    contentDescription = currentUser?.nombre ?: "Usuario",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(72.dp)
+                        .size(68.dp)
                         .clip(CircleShape)
                         .border(2.dp, TaxflowEmerald, CircleShape)
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Carlos Mendoza Ramos",
-                    fontSize = 18.sp,
+                    text = currentUser?.nombre ?: "Usuario ficticio",
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = TaxflowTextPrimary
+                )
+
+                Text(
+                    text = currentUser?.profesion ?: "Profesional Independiente",
+                    fontSize = 13.sp,
+                    color = TaxflowEmeraldDark,
+                    fontWeight = FontWeight.Medium
                 )
 
                 Row(
@@ -85,45 +107,101 @@ fun ProfileDialog(
                             .background(TaxflowEmeraldContainer, RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
-                        Text("Activo / Habido", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TaxflowEmeraldDark)
+                        Text(
+                            "ID: ${currentUser?.id ?: "demo-01"}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TaxflowEmeraldDark
+                        )
                     }
-                    Text("· RUC 10458923014", fontSize = 12.sp, color = TaxflowTextMuted)
+                    Text(
+                        "· Dígito RUC: ${currentUser?.ultimoDigitoRuc ?: 1}",
+                        fontSize = 12.sp,
+                        color = TaxflowTextMuted
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Info Rows
-                Card(
+                // Selector de Usuarios Demo
+                Text(
+                    text = "SELECCIONAR USUARIO DEMO (AWS):",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TaxflowTextMuted,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = TaxflowSurfaceContainerLow)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        ProfileInfoRow("Régimen Fiscal", "Rentas de 4ta Categoría")
-                        ProfileInfoRow("Profesión", "Diseñador & Consultor UX")
-                        ProfileInfoRow("Dígito RUC", "Último dígito: 4")
-                        ProfileInfoRow("Clave SOL", "Sincronizada y Cifrada 256-bit")
+                    userList.forEach { user ->
+                        val isSelected = user.id == currentUser?.id
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectUser(user) },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) TaxflowEmeraldContainer.copy(alpha = 0.6f) else TaxflowSurfaceContainerLow
+                            ),
+                            border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, TaxflowEmerald) else null
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "${user.nombre} (${user.id})",
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = TaxflowTextPrimary
+                                    )
+                                    Text(
+                                        text = "${user.profesion} • RUC termina en ${user.ultimoDigitoRuc}",
+                                        fontSize = 11.sp,
+                                        color = TaxflowTextMuted
+                                    )
+                                }
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = "Seleccionado",
+                                        tint = TaxflowEmerald,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
+                // Logout / Salir
                 OutlinedButton(
                     onClick = onLogout,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(46.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TaxflowCoralRed)
+                        .height(44.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TaxflowCoralRed),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, TaxflowCoralRed.copy(alpha = 0.5f))
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                        contentDescription = "Cerrar sesión",
+                        modifier = Modifier.size(16.dp)
+                    )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Cerrar Sesión / Volver al Inicio", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Cerrar Sesión Demo", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -131,47 +209,26 @@ fun ProfileDialog(
 }
 
 @Composable
-private fun ProfileInfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label, fontSize = 12.sp, color = TaxflowTextMuted)
-        Text(value, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TaxflowTextPrimary)
-    }
-}
-
-data class NotificationItem(
-    val title: String,
-    val description: String,
-    val time: String,
-    val isUrgent: Boolean = false
-)
-
-@Composable
 fun NotificationsDialog(
+    userId: String,
     onDismiss: () -> Unit
 ) {
-    val items = listOf(
-        NotificationItem(
-            title = "Próximo Vencimiento SUNAT",
-            description = "Tu declaración jurada mensual vence el 18 de Septiembre (Dígito 4).",
-            time = "Hace 2 horas",
-            isUrgent = true
-        ),
-        NotificationItem(
-            title = "Comprobante Validado",
-            description = "El RHE E001-48 por S/ 4,500.00 fue registrado con éxito en SUNAT.",
-            time = "Ayer",
-            isUrgent = false
-        ),
-        NotificationItem(
-            title = "Ahorro Tributario Detectado",
-            description = "Nuevo consumo en Restaurante Central agregó +S/ 48.00 a tu bolsa deducible de 3 UIT.",
-            time = "Hace 3 días",
-            isUrgent = false
-        )
-    )
+    var notifications by remember { mutableStateOf<List<NotificationDto>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(userId) {
+        isLoading = true
+        errorMessage = null
+        val result = TaxflowRepository.getNotifications(userId)
+        result.onSuccess {
+            notifications = it.items
+            isLoading = false
+        }.onFailure {
+            errorMessage = "No se pudieron cargar las notificaciones: ${it.localizedMessage}"
+            isLoading = false
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -192,12 +249,19 @@ fun NotificationsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Notificaciones Fiscales",
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TaxflowTextPrimary
-                    )
+                    Column {
+                        Text(
+                            text = "Avisos Fiscales (AWS)",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TaxflowTextPrimary
+                        )
+                        Text(
+                            text = "Usuario: $userId",
+                            fontSize = 11.sp,
+                            color = TaxflowTextMuted
+                        )
+                    }
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = TaxflowTextMuted)
                     }
@@ -205,45 +269,84 @@ fun NotificationsDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(items) { notif ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (notif.isUrgent) TaxflowAmberContainer.copy(alpha = 0.5f) else TaxflowSurfaceContainerLow
-                            )
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp)
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = TaxflowEmerald)
+                    }
+                } else if (errorMessage != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = errorMessage ?: "",
+                            color = TaxflowCoralRed,
+                            fontSize = 13.sp
+                        )
+                    }
+                } else if (notifications.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No tienes avisos pendientes",
+                            color = TaxflowTextMuted,
+                            fontSize = 13.sp
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 340.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(notifications) { notif ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (notif.esUrgente) TaxflowAmberContainer.copy(alpha = 0.5f) else TaxflowSurfaceContainerLow
+                                )
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp)
                                 ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = notif.titulo,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (notif.esUrgente) TaxflowNavy else TaxflowTextPrimary,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Text(
+                                            text = Formatters.formatIsoDateTime(notif.createdAt),
+                                            fontSize = 10.sp,
+                                            color = TaxflowTextMuted
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = notif.title,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (notif.isUrgent) TaxflowNavy else TaxflowTextPrimary
-                                    )
-                                    Text(
-                                        text = notif.time,
-                                        fontSize = 10.sp,
-                                        color = TaxflowTextMuted
+                                        text = notif.mensaje,
+                                        fontSize = 12.sp,
+                                        color = TaxflowTextMuted,
+                                        lineHeight = 16.sp
                                     )
                                 }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = notif.description,
-                                    fontSize = 12.sp,
-                                    color = TaxflowTextMuted,
-                                    lineHeight = 16.sp
-                                )
                             }
                         }
                     }
@@ -259,7 +362,7 @@ fun NotificationsDialog(
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = TaxflowNavy)
                 ) {
-                    Text("Marcar todas como leídas", fontSize = 13.sp)
+                    Text("Cerrar", fontSize = 13.sp)
                 }
             }
         }

@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.gmaldonado.taxflow_movil.data.formatters.Formatters
 import com.gmaldonado.taxflow_movil.ui.theme.*
 
 data class ReceiptData(
@@ -26,10 +27,13 @@ data class ReceiptData(
     val seriesNumber: String,
     val date: String,
     val grossAmount: Double,
-    val retentionAmount: Double,
-    val netAmount: Double,
-    val status: String = "Validado SUNAT",
-    val type: String = "Recibo por Honorarios Electrónico"
+    val retentionAmount: Double = 0.0,
+    val netAmount: Double = 0.0,
+    val status: String = "Validado",
+    val type: String = "Recibo por Honorarios Electrónico",
+    val isExpense: Boolean = false,
+    val deductibleAmount: Double = 0.0,
+    val categoryLabel: String = ""
 )
 
 @Composable
@@ -65,22 +69,22 @@ fun ReceiptDetailDialog(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(TaxflowEmeraldContainer),
+                                .background(if (receipt.isExpense) TaxflowAmberContainer else TaxflowEmeraldContainer),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Receipt,
                                 contentDescription = null,
-                                tint = TaxflowEmeraldDark,
+                                tint = if (receipt.isExpense) TaxflowAmberDark else TaxflowEmeraldDark,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
                         Column {
                             Text(
-                                text = "Comprobante Digital",
+                                text = if (receipt.isExpense) "Gasto Deducible (3 UIT)" else "Comprobante de Ingreso (4ta)",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = TaxflowEmeraldDark
+                                color = if (receipt.isExpense) TaxflowAmberDark else TaxflowEmeraldDark
                             )
                             Text(
                                 text = receipt.seriesNumber,
@@ -102,9 +106,9 @@ fun ReceiptDetailDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Client name
+                // Client or Provider name
                 Text(
-                    text = "Cliente / Emisor",
+                    text = if (receipt.isExpense) "Proveedor / Establecimiento" else "Cliente / Emisor",
                     fontSize = 11.sp,
                     color = TaxflowTextMuted
                 )
@@ -136,27 +140,60 @@ fun ReceiptDetailDialog(
                             Text("Fecha de emisión", fontSize = 13.sp, color = TaxflowTextMuted)
                             Text(receipt.date, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TaxflowTextPrimary)
                         }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Honorario Bruto", fontSize = 13.sp, color = TaxflowTextMuted)
-                            Text(String.format("S/ %,.2f", receipt.grossAmount), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TaxflowTextPrimary)
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Retención SUNAT (8%)", fontSize = 13.sp, color = TaxflowTextMuted)
-                            Text(String.format("-S/ %,.2f", receipt.retentionAmount), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TaxflowCoralRed)
-                        }
-                        HorizontalDivider(color = TaxflowBorder, thickness = 1.dp)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Neto a Percibir", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TaxflowTextPrimary)
-                            Text(String.format("S/ %,.2f", receipt.netAmount), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TaxflowEmerald)
+
+                        if (receipt.isExpense) {
+                            if (receipt.categoryLabel.isNotEmpty()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("Rubro", fontSize = 13.sp, color = TaxflowTextMuted)
+                                    Text(receipt.categoryLabel, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = TaxflowTextPrimary)
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Monto Total Pagado", fontSize = 13.sp, color = TaxflowTextMuted)
+                                Text(Formatters.formatPen(receipt.grossAmount), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TaxflowTextPrimary)
+                            }
+                            HorizontalDivider(color = TaxflowBorder, thickness = 1.dp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Deducción Aplicada", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TaxflowTextPrimary)
+                                Text(Formatters.formatPen(receipt.deductibleAmount), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TaxflowEmerald)
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Honorario Bruto", fontSize = 13.sp, color = TaxflowTextMuted)
+                                Text(Formatters.formatPen(receipt.grossAmount), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TaxflowTextPrimary)
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Retención (8%)", fontSize = 13.sp, color = TaxflowTextMuted)
+                                Text(
+                                    if (receipt.retentionAmount > 0) "-${Formatters.formatPen(receipt.retentionAmount)}" else "S/ 0.00",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (receipt.retentionAmount > 0) TaxflowCoralRed else TaxflowTextMuted
+                                )
+                            }
+                            HorizontalDivider(color = TaxflowBorder, thickness = 1.dp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Neto a Percibir", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TaxflowTextPrimary)
+                                Text(Formatters.formatPen(receipt.netAmount), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TaxflowEmerald)
+                            }
                         }
                     }
                 }
@@ -179,7 +216,7 @@ fun ReceiptDetailDialog(
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = "Estado: ${receipt.status} con Clave SOL",
+                        text = "Estado: ${receipt.status} (AWS Demo)",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = TaxflowEmeraldDark
@@ -198,7 +235,7 @@ fun ReceiptDetailDialog(
                 ) {
                     Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Compartir o Descargar PDF", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Cerrar Detalle", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
