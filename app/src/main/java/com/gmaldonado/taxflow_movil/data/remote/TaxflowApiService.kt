@@ -77,4 +77,14 @@ interface TaxflowApiService {
     suspend fun simulateExpense(
         @Body request: ExpenseSimulationRequest
     ): SimulationResultDto
+
+    @POST("v1/me/incomes")
+    suspend fun registerIncome(
+        @Body request: RegisterIncomeRequest
+    ): IncomeDto
+
+    @POST("v1/me/expenses")
+    suspend fun registerExpense(
+        @Body request: RegisterExpenseRequest
+    ): ExpenseDto
 }

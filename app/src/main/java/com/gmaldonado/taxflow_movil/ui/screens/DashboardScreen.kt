@@ -40,8 +40,9 @@ fun DashboardScreen(
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var refreshTrigger by remember { mutableStateOf(0) }
+    val dataRefreshVersion by TaxflowRepository.dataRefreshTrigger.collectAsState()
 
-    LaunchedEffect(currentUser?.id, refreshTrigger) {
+    LaunchedEffect(currentUser?.id, refreshTrigger, dataRefreshVersion) {
         isLoading = true
         errorMessage = null
         val token = TaxflowRepository.getSessionToken()

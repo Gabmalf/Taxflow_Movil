@@ -52,6 +52,14 @@ object TaxflowRepository {
     private val _currentUser = MutableStateFlow<ProfileDto?>(null)
     val currentUser: StateFlow<ProfileDto?> = _currentUser.asStateFlow()
 
+    // Trigger reactivo para refrescar pantallas (Dashboard, Ingresos, Gastos) ante nuevo registro
+    private val _dataRefreshTrigger = MutableStateFlow(0)
+    val dataRefreshTrigger: StateFlow<Int> = _dataRefreshTrigger.asStateFlow()
+
+    fun notifyDataChanged() {
+        _dataRefreshTrigger.value++
+    }
+
     // Contador de sesión para descartar respuestas asíncronas obsoletas tras cambio de sesión
     private var activeSessionToken: Long = 0L
     fun getSessionToken(): Long = activeSessionToken
@@ -210,6 +218,58 @@ object TaxflowRepository {
     suspend fun simulateExpense(montoCentimos: Long, categoria: String): Result<SimulationResultDto> {
         return try {
             val res = api.simulateExpense(ExpenseSimulationRequest(montoCentimos = montoCentimos, categoria = categoria))
+            Result.success(res)
+        } catch (e: Exception) {
+            handleUnauthorized(e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun registerIncome(
+        montoBrutoCentimos: Long,
+        aplicarRetencion: Boolean,
+        cliente: String = "Cliente Demo",
+        fecha: String? = null,
+        idempotencyKey: String? = null
+    ): Result<IncomeDto> {
+        return try {
+            val today = fecha ?: java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+            val req = RegisterIncomeRequest(
+                cliente = cliente.trim().ifBlank { "Cliente Demo" },
+                fecha = today,
+                montoBrutoCentimos = montoBrutoCentimos,
+                aplicarRetencion = aplicarRetencion,
+                serie = "E001",
+                idempotencyKey = idempotencyKey
+            )
+            val res = api.registerIncome(req)
+            notifyDataChanged()
+            Result.success(res)
+        } catch (e: Exception) {
+            handleUnauthorized(e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun registerExpense(
+        montoCentimos: Long,
+        categoria: String,
+        proveedor: String = "Proveedor Demo",
+        fecha: String? = null,
+        idempotencyKey: String? = null
+    ): Result<ExpenseDto> {
+        return try {
+            val today = fecha ?: java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+            val req = RegisterExpenseRequest(
+                proveedor = proveedor.trim().ifBlank { "Proveedor Demo" },
+                fecha = today,
+                montoCentimos = montoCentimos,
+                categoria = categoria,
+                serie = "B001",
+                idempotencyKey = idempotencyKey
+            )
+            val res = api.registerExpense(req)
+            notifyDataChanged()
             Result.success(res)
         } catch (e: Exception) {
             handleUnauthorized(e)

@@ -40,8 +40,9 @@ fun IngresosScreen(
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var refreshTrigger by remember { mutableStateOf(0) }
+    val dataRefreshVersion by TaxflowRepository.dataRefreshTrigger.collectAsState()
 
-    LaunchedEffect(currentUser?.id, selectedFilter, searchQuery, refreshTrigger) {
+    LaunchedEffect(currentUser?.id, selectedFilter, searchQuery, refreshTrigger, dataRefreshVersion) {
         isLoading = true
         errorMessage = null
 

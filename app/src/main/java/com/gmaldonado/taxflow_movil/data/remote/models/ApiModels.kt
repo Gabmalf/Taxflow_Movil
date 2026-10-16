@@ -170,6 +170,28 @@ data class SimulationResultDto(
     @SerializedName("persistido") val persistido: Boolean
 )
 
+// ── REGISTRO DE INGRESOS Y GASTOS (PERSISTENCIA AWS) ─────────────────────────
+
+data class RegisterIncomeRequest(
+    @SerializedName("cliente") val cliente: String = "Cliente Demo",
+    @SerializedName("fecha") val fecha: String,
+    @SerializedName("monto_bruto_centimos") val montoBrutoCentimos: Long,
+    @SerializedName("aplicar_retencion") val aplicarRetencion: Boolean,
+    @SerializedName("serie") val serie: String = "E001",
+    @SerializedName("numero") val numero: String? = null,
+    @SerializedName("idempotency_key") val idempotencyKey: String? = null
+)
+
+data class RegisterExpenseRequest(
+    @SerializedName("proveedor") val proveedor: String = "Proveedor Demo",
+    @SerializedName("fecha") val fecha: String,
+    @SerializedName("monto_centimos") val montoCentimos: Long,
+    @SerializedName("categoria") val categoria: String,
+    @SerializedName("serie") val serie: String = "B001",
+    @SerializedName("numero") val numero: String? = null,
+    @SerializedName("idempotency_key") val idempotencyKey: String? = null
+)
+
 // ── RESPUESTA DE ERROR DEL BACKEND ───────────────────────────────────────────
 
 data class ApiErrorDetail(

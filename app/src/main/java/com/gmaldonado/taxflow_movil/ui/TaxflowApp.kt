@@ -204,7 +204,12 @@ fun TaxflowApp() {
                 onSimulationDone = { result ->
                     scope.launch {
                         val formatted = Formatters.formatCentimosAsPen(result.montoCentimos)
-                        snackbarHostState.showSnackbar("Simulación de $formatted calculada en AWS Lambda (${result.reglasVersion})")
+                        snackbarHostState.showSnackbar("Simulación de $formatted calculada (${result.reglasVersion})")
+                    }
+                },
+                onOperationRegistered = { message ->
+                    scope.launch {
+                        snackbarHostState.showSnackbar(message)
                     }
                 }
             )

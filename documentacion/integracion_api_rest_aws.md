@@ -53,9 +53,13 @@ Todas estas rutas requieren la cabecera `Authorization: Bearer <token>`:
 | `GET` | `/v1/me` | Ninguno | Retorna el perfil del usuario autenticado (`ProfileDto`). |
 | `GET` | `/v1/me/dashboard` | `anio=2026&mes=9` | Retorna KPIs del dashboard: ingresos acumulados, límite 7 UIT, proyección y vencimiento SUNAT. |
 | `GET` | `/v1/me/incomes` | `anio=2026` | Listado de comprobantes RHE emitidos en el año fiscal. |
+| `POST` | `/v1/me/incomes` | `RegisterIncomeRequest` | Registra y persiste un RHE emitido en DynamoDB (asociado al usuario autenticado). |
 | `GET` | `/v1/me/expenses` | `anio=2026` | Listado de gastos deducibles registrados en el año (tope 3 UIT). |
+| `POST` | `/v1/me/expenses` | `RegisterExpenseRequest` | Registra y persiste un gasto deducible en DynamoDB (asociado al usuario autenticado). |
 | `GET` | `/v1/me/calendar` | `anio=2026&mes=9` | Cronograma de obligaciones tributarias según el último dígito del RUC. |
 | `POST` | `/v1/me/simulations` | `SimulationRequest` | Cálculo tributario en la nube en tiempo real (sin persistencia). |
+
+> 📌 Para la especificación técnica completa dirigida al equipo backend/AWS, consulta: [`docs/integration/REGISTRO_INGRESOS_GASTOS_AWS.md`](../docs/integration/REGISTRO_INGRESOS_GASTOS_AWS.md).
 
 ---
 
