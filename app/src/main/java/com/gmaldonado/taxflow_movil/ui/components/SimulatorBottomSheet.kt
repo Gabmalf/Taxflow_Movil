@@ -543,6 +543,7 @@ fun SimulatorBottomSheet(
                                     montoBrutoCentimos = currentSim.montoCentimos,
                                     aplicarRetencion = applyRetention,
                                     cliente = clientName,
+                                    fecha = "2026-09-20",
                                     idempotencyKey = idempotencyKey
                                 )
                             } else {
@@ -551,6 +552,7 @@ fun SimulatorBottomSheet(
                                     montoCentimos = currentSim.montoCentimos,
                                     categoria = selectedCategory,
                                     proveedor = providerName,
+                                    fecha = "2026-09-20",
                                     idempotencyKey = idempotencyKey
                                 )
                             }

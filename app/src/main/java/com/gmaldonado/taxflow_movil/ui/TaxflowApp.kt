@@ -88,13 +88,13 @@ fun TaxflowApp() {
                         onStartClick = { currentScreen = AppScreen.AUTH_SIGNUP },
                         onLoginClick = { currentScreen = AppScreen.AUTH_LOGIN },
                         onSkipClick = {
-                            if (!TaxflowRepository.isLoggedIn()) {
-                                scope.launch {
+                            scope.launch {
+                                if (!TaxflowRepository.isLoggedIn()) {
                                     val demo = TaxflowRepository.demoAccounts.first()
                                     TaxflowRepository.login(demo.email, demo.pass)
                                 }
+                                currentScreen = AppScreen.MAIN_APP
                             }
-                            currentScreen = AppScreen.MAIN_APP
                         }
                     )
                 }

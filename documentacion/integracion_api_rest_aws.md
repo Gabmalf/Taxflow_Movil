@@ -131,5 +131,10 @@ La integración ha sido completamente verificada en el emulador Android de desar
 - Listado de Recibos por Honorarios (`HTTP 200`).
 - Listado de Gastos Deducibles (`HTTP 200`).
 - Cronograma SUNAT filtrado por dígito de RUC (`HTTP 200`).
-- Ejecución de simulación de RHE en AWS Lambda (`HTTP 200`).
+- Ejecución de simulación de RHE en AWS Lambda (`POST /v1/me/simulations`, `HTTP 200`).
+- Persistencia real de Recibo por Honorarios en DynamoDB (`POST /v1/me/incomes`, `HTTP 201`).
+- Persistencia real de Gasto Deducible en DynamoDB (`POST /v1/me/expenses`, `HTTP 201`).
+- Flujo en dos etapas en el Simulador Tributario con invalidación reactiva e idempotencia (UUID v4).
+- Sincronización automática de métricas en Dashboard, Ingresos y Gastos tras el registro mediante `TaxflowRepository.dataRefreshTrigger`.
 - Cierre de sesión e invalidación de token con body vacío `{}` (`HTTP 200`).
+
